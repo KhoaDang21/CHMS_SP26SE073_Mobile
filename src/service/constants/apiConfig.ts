@@ -1,0 +1,93 @@
+/**
+ * Customer (mobile) API paths — aligned with FE `src/config/apiConfig.ts`
+ * and FE auth (`src/config/authConfig.ts` uses `/api` + `/Auth/...` for auth).
+ */
+export const apiConfig = {
+  baseURL: "http://163.227.230.54:8088",
+  timeout: 15000,
+  endpoints: {
+    auth: {
+      login: "/api/Auth/login",
+      register: "/api/Auth/register",
+      logout: "/api/Auth/logout",
+      forgotPassword: "/api/Auth/forgot-password",
+      resetPassword: "/api/Auth/reset-password",
+      refreshToken: "/api/Auth/refresh-token",
+      verifyOtp: "/api/Auth/verify-otp",
+      googleLogin: "/api/Auth/google-login",
+      profile: "/api/users/profile",
+    },
+    homestays: {
+      list: "/api/homestays",
+      search: "/api/homestays/search",
+      detail: (id: string) => `/api/homestays/${id}`,
+      reviews: (id: string) => `/api/homestays/${id}/reviews`,
+    },
+    publicHomestays: {
+      reviews: (homestayId: string) =>
+        `/api/public/homestays/${homestayId}/reviews`,
+    },
+    bookings: {
+      list: "/api/bookings",
+      detail: (id: string) => `/api/bookings/${id}`,
+      create: "/api/bookings",
+      cancel: (id: string) => `/api/bookings/${id}/cancel`,
+      calculate: "/api/bookings/calculate",
+      modify: (id: string) => `/api/bookings/${id}/modify`,
+      cancellationPolicy: (id: string) =>
+        `/api/bookings/${id}/cancellation-policy`,
+      specialRequests: (id: string) => `/api/bookings/${id}/special-requests`,
+    },
+    wishlist: {
+      list: "/api/wishlist",
+      add: (homestayId: string) => `/api/wishlist/${homestayId}`,
+      remove: (homestayId: string) => `/api/wishlist/${homestayId}`,
+      recentlyViewed: "/api/recently-viewed",
+    },
+    payments: {
+      createLink: "/api/payment/create-link",
+      detail: (id: string) => `/api/payment/${id}`,
+      history: "/api/payment/history",
+    },
+    profile: {
+      get: "/api/users/profile",
+      update: "/api/users/profile",
+      changePassword: "/api/users/profile/password",
+    },
+    reviews: {
+      create: "/api/reviews",
+      myReviews: "/api/reviews/my-reviews",
+      update: (id: string) => `/api/reviews/${id}`,
+      delete: (id: string) => `/api/reviews/${id}`,
+    },
+    notifications: {
+      list: "/api/notifications",
+      unreadCount: "/api/notifications/unread-count",
+      markRead: (id: string) => `/api/notifications/${id}/read`,
+      markAllRead: "/api/notifications/read-all",
+      delete: (id: string) => `/api/notifications/${id}`,
+      settings: "/api/notifications/settings",
+    },
+    supportTickets: {
+      create: "/api/support/tickets",
+      list: "/api/support/tickets",
+      detail: (id: string) => `/api/support/tickets/${id}`,
+      sendMessage: (ticketId: string) =>
+        `/api/support/tickets/${ticketId}/messages`,
+      close: (id: string) => `/api/support/tickets/${id}/close`,
+    },
+    ai: {
+      chat: "/api/ai/chat",
+      chatHistory: "/api/ai/chat/history",
+      recommendations: "/api/ai/recommendations",
+      faq: "/api/ai/faq",
+      askFaq: "/api/ai/faq/ask",
+    },
+    promotions: {
+      activeForCustomer: "/api/promotions/active",
+    },
+    coupons: {
+      validate: "/api/coupons/validate",
+    },
+  },
+};
