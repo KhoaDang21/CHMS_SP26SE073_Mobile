@@ -1,5 +1,4 @@
 import { apiClient } from "@/service/api/apiClient";
-import { extractArray } from "@/service/api/responseHelpers";
 import { apiConfig } from "@/service/constants/apiConfig";
 import type { Booking, BookingStatus } from "@/types";
 
@@ -34,9 +33,21 @@ export const bookingService = {
   async getMyBookings(): Promise<Booking[]> {
     try {
       const res = await apiClient.get<unknown>(apiConfig.endpoints.bookings.list);
-      const list = extractArray<Record<string, unknown>>(res);
-      return list.map(mapBooking);
-    } catch {
+      // Đồng bộ với FE web: check response.data là array, hoặc response là array
+      // Cũng handle paged response { data: { items: [...] } }
+      const r = res as any;
+      let rawList: any[] = [];
+      if (Array.isArray(r?.data)) {
+        rawList = r.data;
+      } else if (Array.isArray(r?.data?.items)) {
+        rawList = r.data.items;
+      } else if (Array.isArray(r?.data?.Items)) {
+        rawList = r.data.Items;
+      } else if (Array.isArray(r)) {
+        rawList = r;
+      }
+      return rawList.map(mapBooking);
+    } catch (_e) {
       return [];
     }
   },

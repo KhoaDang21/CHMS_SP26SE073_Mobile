@@ -17,7 +17,7 @@ import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -43,8 +43,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [checkInDate, setCheckInDate] = useState(new Date());
-  const [checkOutDate, setCheckOutDate] = useState(new Date(Date.now() + 86400000));
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
   const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
@@ -58,8 +58,8 @@ export default function HomeScreen() {
   const [picker, setPicker] = useState<"province" | "district" | null>(null);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
 
-  const checkInStr = checkInDate.toISOString().split("T")[0];
-  const checkOutStr = checkOutDate.toISOString().split("T")[0];
+  const checkInStr = checkInDate ? checkInDate.toISOString().split("T")[0] : null;
+  const checkOutStr = checkOutDate ? checkOutDate.toISOString().split("T")[0] : null;
 
   const loadHomestays = useCallback(async () => {
     try {
@@ -115,6 +115,20 @@ export default function HomeScreen() {
     });
   }, [loadHomestays]);
 
+  useFocusEffect(
+    useCallback(() => {
+      tokenStorage.getToken().then((t) => {
+        if (t) {
+          bookingService.getMyBookings().then(setMyBookings).catch(() => {});
+          wishlistService
+            .getMyWishlist()
+            .then((list) => setWishlistIds(new Set(list.map((h) => h.id))))
+            .catch(() => {});
+        }
+      });
+    }, []),
+  );
+
   useEffect(() => {
     setSelectedDistrict("");
     if (!selectedProvince) {
@@ -127,6 +141,7 @@ export default function HomeScreen() {
   }, [selectedProvince, allDistricts]);
 
   const bookedHomestayIds = useMemo(() => {
+    if (!checkInStr || !checkOutStr) return new Set<string>();
     const selIn = new Date(checkInStr);
     const selOut = new Date(checkOutStr);
     const blocked = new Set<string>();
@@ -151,10 +166,10 @@ export default function HomeScreen() {
       return matchProvince && matchDistrict;
     });
 
-    const selIn = new Date(checkInStr);
-    const selOut = new Date(checkOutStr);
     const hasLocationFilter = !!(selectedProvince || selectedDistrict);
-    if (!hasLocationFilter && myBookings.length) {
+    if (checkInStr && checkOutStr && !hasLocationFilter) {
+      const selIn = new Date(checkInStr);
+      const selOut = new Date(checkOutStr);
       result = result.filter(
         (h) =>
           !myBookings.some((b) => {
@@ -203,13 +218,20 @@ export default function HomeScreen() {
 
   const handleCheckInDate = (_: unknown, date?: Date) => {
     setShowCheckInPicker(false);
-    if (date) setCheckInDate(date);
+    if (date) {
+      setCheckInDate(date);
+      if (checkOutDate && checkOutDate <= date) {
+        const next = new Date(date);
+        next.setDate(next.getDate() + 1);
+        setCheckOutDate(next);
+      }
+    }
   };
 
   const handleCheckOutDate = (_: unknown, date?: Date) => {
     setShowCheckOutPicker(false);
     if (date) {
-      if (date <= checkInDate) {
+      if (checkInDate && date <= checkInDate) {
         showToast("Ngày trả phòng phải sau ngày nhận phòng", "warning");
         return;
       }
@@ -245,8 +267,8 @@ export default function HomeScreen() {
     [wishlistIds],
   );
 
-  const formatDate = (d: Date) =>
-    d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+  const formatDate = (d: Date | null) =>
+    d ? d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "Chọn ngày";
 
   const filteredHomestays = homestays;
 
@@ -254,6 +276,8 @@ export default function HomeScreen() {
     setSearchText("");
     setSelectedProvince("");
     setSelectedDistrict("");
+    setCheckInDate(null);
+    setCheckOutDate(null);
   };
 
   return (
@@ -353,24 +377,34 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.dateRow}>
-                <TouchableOpacity style={styles.dateChip} onPress={() => setShowCheckInPicker(true)}>
+                <TouchableOpacity style={[styles.dateChip, checkInDate && styles.dateChipActive]} onPress={() => setShowCheckInPicker(true)}>
                   <MaterialCommunityIcons name="calendar-arrow-right" size={16} color="#fff" />
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.dateChipLabel}>Nhận phòng</Text>
                     <Text style={styles.dateChipValue}>{formatDate(checkInDate)}</Text>
                   </View>
+                  {checkInDate && (
+                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); setCheckInDate(null); setCheckOutDate(null); }}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color="rgba(255,255,255,0.7)" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
 
                 <View style={styles.dateSeparator}>
                   <MaterialCommunityIcons name="arrow-right" size={16} color="rgba(255,255,255,0.6)" />
                 </View>
 
-                <TouchableOpacity style={styles.dateChip} onPress={() => setShowCheckOutPicker(true)}>
+                <TouchableOpacity style={[styles.dateChip, checkOutDate && styles.dateChipActive]} onPress={() => setShowCheckOutPicker(true)}>
                   <MaterialCommunityIcons name="calendar-arrow-left" size={16} color="#fff" />
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.dateChipLabel}>Trả phòng</Text>
                     <Text style={styles.dateChipValue}>{formatDate(checkOutDate)}</Text>
                   </View>
+                  {checkOutDate && (
+                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); setCheckOutDate(null); }}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color="rgba(255,255,255,0.7)" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               </View>
             </LinearGradient>
@@ -378,9 +412,9 @@ export default function HomeScreen() {
             <View style={styles.resultsRow}>
               <Text style={styles.resultsText}>
                 {filteredHomestays.length} homestay
-                {searchText || selectedProvince || selectedDistrict ? " (đã lọc)" : " nổi bật"}
+                {searchText || selectedProvince || selectedDistrict || checkInDate ? " (đã lọc)" : " nổi bật"}
               </Text>
-              {(searchText || selectedProvince || selectedDistrict) ? (
+              {(searchText || selectedProvince || selectedDistrict || checkInDate) ? (
                 <TouchableOpacity onPress={clearFilters}>
                   <Text style={styles.clearText}>Xóa bộ lọc</Text>
                 </TouchableOpacity>
@@ -465,7 +499,7 @@ export default function HomeScreen() {
 
       {showCheckInPicker && (
         <DateTimePicker
-          value={checkInDate}
+          value={checkInDate || new Date()}
           mode="date"
           display="spinner"
           onChange={handleCheckInDate}
@@ -474,11 +508,11 @@ export default function HomeScreen() {
       )}
       {showCheckOutPicker && (
         <DateTimePicker
-          value={checkOutDate}
+          value={checkOutDate || (checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date(Date.now() + 86400000))}
           mode="date"
           display="spinner"
           onChange={handleCheckOutDate}
-          minimumDate={new Date(checkInDate.getTime() + 86400000)}
+          minimumDate={checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date(Date.now() + 86400000)}
         />
       )}
 
@@ -580,6 +614,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
     borderWidth: 1, borderColor: "rgba(255,255,255,0.25)",
+  },
+  dateChipActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    borderColor: "rgba(255,255,255,0.5)",
   },
   dateChipLabel: { fontSize: 10, color: "rgba(255,255,255,0.7)" },
   dateChipValue: { fontSize: 13, fontWeight: "700", color: "#fff" },
