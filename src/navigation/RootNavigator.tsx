@@ -9,6 +9,7 @@ import {
   HomestayDetailScreen,
   LandingScreen,
   LoginScreen,
+  PublicExploreScreen,
   NotificationPreferencesScreen,
   NotificationsScreen,
   PaymentInitiationScreen,
@@ -46,6 +47,8 @@ export type RootStackParamList = {
 
 export type AuthStackParamList = {
   Landing: undefined;
+  Explore: undefined;
+  HomestayDetail: { id: string };
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
@@ -61,6 +64,8 @@ function AuthStackScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   return (
     <AuthStackNavigator.Navigator screenOptions={{ headerShown: false }}>
       <AuthStackNavigator.Screen name="Landing" component={LandingScreen} />
+      <AuthStackNavigator.Screen name="Explore" component={PublicExploreScreen} />
+      <AuthStackNavigator.Screen name="HomestayDetail" component={HomestayDetailScreen} />
       <AuthStackNavigator.Screen name="Login">
         {() => <LoginScreen onLoginSuccess={onLoginSuccess} />}
       </AuthStackNavigator.Screen>

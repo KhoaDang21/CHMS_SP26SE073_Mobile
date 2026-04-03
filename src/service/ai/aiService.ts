@@ -1,4 +1,5 @@
 import { apiClient } from "@/service/api/apiClient";
+import { extractArray } from "@/service/api/responseHelpers";
 import { apiConfig } from "@/service/constants/apiConfig";
 
 export interface ChatMessage {
@@ -6,12 +7,6 @@ export interface ChatMessage {
   role: "USER" | "ASSISTANT";
   message: string;
   createdAt: string;
-}
-
-export interface ChatResponse {
-  id: string;
-  message: string;
-  suggestions?: string[];
 }
 
 export interface Recommendation {
@@ -30,98 +25,83 @@ export interface FAQ {
 }
 
 export const aiService = {
-  // Gửi tin nhắn chat
-  async sendMessage(message: string): Promise<ChatResponse> {
-    const res = await apiClient.post<any>(apiConfig.endpoints.ai.chat, {
+  /** POST /api/ai/chat — BE returns ApiResponse<string> */
+  async sendMessage(message: string): Promise<string> {
+    const res = await apiClient.post<Record<string, unknown>>(apiConfig.endpoints.ai.chat, {
       message,
     });
-    const data = res?.data ?? res;
-    return {
-      id: data.id,
-      message: data.message,
-      suggestions: data.suggestions,
-    };
+    const text = res?.data ?? res;
+    return typeof text === "string" ? text : "";
   },
 
-  // Lấy lịch sử chat
   async getChatHistory(): Promise<ChatMessage[]> {
-    const res = await apiClient.get<any>(apiConfig.endpoints.ai.chatHistory);
-    const list = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-        ? res
-        : [];
-    return list.map((item: any) => ({
-      id: item.id,
-      role: item.role,
-      message: item.message,
-      createdAt: item.createdAt,
+    const res = await apiClient.get<unknown>(apiConfig.endpoints.ai.chatHistory);
+    const list = extractArray<Record<string, unknown>>(res);
+    return list.map((item, idx) => ({
+      id: String(item.id ?? item.Id ?? `h-${idx}`),
+      role: (String(item.role ?? item.Role ?? "ASSISTANT").toUpperCase() === "USER"
+        ? "USER"
+        : "ASSISTANT") as "USER" | "ASSISTANT",
+      message: String(item.message ?? item.Message ?? ""),
+      createdAt: String(item.createdAt ?? item.CreatedAt ?? new Date().toISOString()),
     }));
   },
 
-  // Xóa lịch sử chat
   async clearChatHistory(): Promise<{ success: boolean }> {
-    const res = await apiClient.delete<any>(
-      `${apiConfig.endpoints.ai.chatHistory}`,
+    const res = await apiClient.delete<Record<string, unknown>>(
+      apiConfig.endpoints.ai.deleteChatHistory,
     );
-    return {
-      success: Boolean(res?.success ?? true),
-    };
+    return { success: Boolean(res?.success ?? true) };
   },
 
-  // Nhận recommendations
-  async getRecommendations(): Promise<Recommendation[]> {
-    const res = await apiClient.get<any>(
-      apiConfig.endpoints.ai.recommendations,
-    );
-    const list = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-        ? res
-        : [];
-    return list.map((item: any) => ({
-      homestayId: item.homestayId,
-      homestayName: item.homestayName,
-      reason: item.reason,
-      price: item.price,
-      rating: item.rating,
+  /** FE: POST /api/ai/recommendations with body */
+  async getRecommendations(prefs?: {
+    preferences?: string;
+    location?: string;
+    guestCount?: number;
+  }): Promise<Recommendation[]> {
+    const res = await apiClient.post<unknown>(apiConfig.endpoints.ai.recommendations, {
+      preferences: prefs?.preferences ?? "Homestay ven biển, giá hợp lý",
+      location: prefs?.location,
+      guestCount: prefs?.guestCount,
+    });
+    const r = res as Record<string, unknown>;
+    const list = r?.data;
+    const arr = Array.isArray(list) ? list : Array.isArray(res) ? res : [];
+    return (arr as Record<string, unknown>[]).map((item) => ({
+      homestayId: String(item.homestayId ?? item.HomestayId ?? ""),
+      homestayName: String(item.homestayName ?? item.HomestayName ?? ""),
+      reason: String(item.reason ?? item.Reason ?? ""),
+      price: Number(item.price ?? item.Price ?? 0),
+      rating: Number(item.rating ?? item.Rating ?? 0),
     }));
   },
 
-  // Lấy FAQs
   async getFAQs(category?: string): Promise<FAQ[]> {
     const url = category
       ? `${apiConfig.endpoints.ai.faq}?category=${encodeURIComponent(category)}`
       : apiConfig.endpoints.ai.faq;
-    const res = await apiClient.get<any>(url);
-    const list = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-        ? res
-        : [];
-    return list.map((item: any) => ({
-      id: item.id,
-      question: item.question,
-      answer: item.answer,
-      category: item.category,
+    const res = await apiClient.get<unknown>(url);
+    const r = res as Record<string, unknown>;
+    const list = Array.isArray(r?.data) ? r.data : Array.isArray(res) ? res : [];
+    return (list as Record<string, unknown>[]).map((item) => ({
+      id: String(item.id ?? item.Id ?? ""),
+      question: String(item.question ?? item.Question ?? ""),
+      answer: String(item.answer ?? item.Answer ?? ""),
+      category: String(item.category ?? item.Category ?? ""),
     }));
   },
 
-  // Tìm FAQs theo câu hỏi
   async askFAQ(question: string): Promise<FAQ[]> {
-    const res = await apiClient.post<any>(apiConfig.endpoints.ai.askFaq, {
+    const res = await apiClient.post<unknown>(apiConfig.endpoints.ai.askFaq, {
       question,
     });
-    const list = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-        ? res
-        : [];
-    return list.map((item: any) => ({
-      id: item.id,
-      question: item.question,
-      answer: item.answer,
-      category: item.category,
+    const list = extractArray<Record<string, unknown>>(res);
+    return list.map((item) => ({
+      id: String(item.id ?? item.Id ?? ""),
+      question: String(item.question ?? item.Question ?? ""),
+      answer: String(item.answer ?? item.Answer ?? ""),
+      category: String(item.category ?? item.Category ?? ""),
     }));
   },
 };

@@ -6,6 +6,7 @@ import {
     Input,
     LoadingIndicator,
 } from "@/components";
+import { tokenStorage } from "@/service/auth/tokenStorage";
 import { bookingService } from "@/service/booking/bookingService";
 import { publicHomestayService } from "@/service/homestay/publicHomestayService";
 import { wishlistService } from "@/service/wishlist/wishlistService";
@@ -14,7 +15,7 @@ import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
 import {
     Dimensions,
@@ -47,6 +48,7 @@ export default function HomestayDetailScreen() {
   const [checkOutDate, setCheckOutDate] = useState(new Date(Date.now() + 86400000));
   const [guestCount, setGuestCount] = useState(1);
   const [phone, setPhone] = useState("");
+  const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -61,12 +63,38 @@ export default function HomestayDetailScreen() {
       }
     };
     load();
-    wishlistService.getMyWishlist().then((list) => {
-      setIsFavorite(list.some((h) => h.id === id));
-    }).catch(() => {});
   }, [id]);
 
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const token = await tokenStorage.getToken();
+        if (cancelled) return;
+        setHasSession(Boolean(token));
+        if (token) {
+          try {
+            const list = await wishlistService.getMyWishlist();
+            if (!cancelled) setIsFavorite(list.some((h) => h.id === id));
+          } catch {
+            if (!cancelled) setIsFavorite(false);
+          }
+        } else {
+          setIsFavorite(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [id]),
+  );
+
   const handleWishlistToggle = useCallback(async () => {
+    if (!hasSession) {
+      showToast("Đăng nhập để lưu yêu thích", "info");
+      navigation.navigate("Login");
+      return;
+    }
     const prev = isFavorite;
     setIsFavorite(!prev);
     try {
@@ -103,6 +131,11 @@ export default function HomestayDetailScreen() {
   const totalPrice = item ? item.pricePerNight * nights : 0;
 
   const handleBooking = useCallback(async () => {
+    if (!hasSession) {
+      showToast("Vui lòng đăng nhập để đặt phòng", "info");
+      navigation.navigate("Login");
+      return;
+    }
     if (!item || !phone) {
       showToast("Vui lòng nhập số điện thoại liên hệ", "warning");
       return;
@@ -127,7 +160,7 @@ export default function HomestayDetailScreen() {
     } finally {
       setBooking(false);
     }
-  }, [item, checkInDate, checkOutDate, guestCount, phone]);
+  }, [item, checkInDate, checkOutDate, guestCount, phone, hasSession, navigation]);
 
   if (loading) {
     return (
@@ -293,6 +326,19 @@ export default function HomestayDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Đặt phòng</Text>
 
+          {!hasSession ? (
+            <View style={styles.guestBookingBox}>
+              <MaterialCommunityIcons name="lock-outline" size={28} color="#0891b2" />
+              <Text style={styles.guestBookingTitle}>Đăng nhập để đặt phòng</Text>
+              <Text style={styles.guestBookingDesc}>
+                Bạn vẫn có thể xem ảnh, mô tả và giá. Đăng nhập để hoàn tất đặt phòng và thanh toán.
+              </Text>
+              <Button title="Đăng nhập" onPress={() => navigation.navigate("Login")} />
+            </View>
+          ) : null}
+
+          {hasSession ? (
+          <>
           {/* Date Pickers */}
           <View style={styles.dateRow}>
             <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCheckInPicker(true)}>
@@ -357,6 +403,8 @@ export default function HomestayDetailScreen() {
             disabled={booking}
             size="large"
           />
+          </>
+          ) : null}
         </View>
 
         <View style={{ height: 24 }} />
@@ -376,7 +424,7 @@ export default function HomestayDetailScreen() {
         confirmText="OK"
         onConfirm={() => {
           setSuccessDialogVisible(false);
-          navigation.navigate("Bookings");
+          navigation.navigate("MainTabs" as never, { screen: "Bookings" } as never);
         }}
       />
     </SafeAreaView>
@@ -470,4 +518,10 @@ const styles = StyleSheet.create({
   counter: { flexDirection: "row", alignItems: "center", gap: 16 },
   counterBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#e0f2fe", justifyContent: "center", alignItems: "center" },
   counterValue: { fontSize: 18, fontWeight: "700", color: "#0f172a", minWidth: 28, textAlign: "center" },
+  guestBookingBox: {
+    alignItems: "center", gap: 10, paddingVertical: 16, paddingHorizontal: 12,
+    backgroundColor: "#f0f9ff", borderRadius: 12, borderWidth: 1, borderColor: "#bae6fd", marginBottom: 12,
+  },
+  guestBookingTitle: { fontSize: 16, fontWeight: "700", color: "#0f172a", textAlign: "center" },
+  guestBookingDesc: { fontSize: 13, color: "#64748b", textAlign: "center", lineHeight: 20 },
 });

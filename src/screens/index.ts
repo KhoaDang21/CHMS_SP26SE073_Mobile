@@ -13,6 +13,7 @@ export { default as NotificationsScreen } from "@/screens/NotificationsScreen";
 export { default as PaymentInitiationScreen } from "@/screens/PaymentInitiationScreen";
 export { default as PaymentResultScreen } from "@/screens/PaymentResultScreen";
 export { default as ProfileScreen } from "@/screens/ProfileScreen";
+export { default as PublicExploreScreen } from "@/screens/PublicExploreScreen";
 export { default as RegisterScreen } from "@/screens/RegisterScreen";
 export { default as ResetPasswordScreen } from "@/screens/ResetPasswordScreen";
 export { default as ReviewsScreen } from "@/screens/ReviewsScreen";

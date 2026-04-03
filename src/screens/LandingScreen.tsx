@@ -23,6 +23,14 @@ export default function LandingScreen() {
     navigation.navigate("Login");
   }, [navigation]);
 
+  const handleExplorePress = useCallback(() => {
+    navigation.navigate("Explore");
+  }, [navigation]);
+
+  const handleRegisterPress = useCallback(() => {
+    navigation.navigate("Register");
+  }, [navigation]);
+
   const handleAboutPress = useCallback(() => {
     navigation.navigate("About");
   }, [navigation]);
@@ -97,19 +105,29 @@ export default function LandingScreen() {
         <View style={styles.ctaSection}>
           <Text style={styles.ctaTitle}>Bắt đầu hành trình của bạn</Text>
           <Text style={styles.ctaDescription}>
-            Đăng nhập để khám phá hàng ngàn homestay tuyệt vời đang chờ bạn
+            Xem danh sách homestay ngay — đăng nhập khi bạn muốn đặt phòng hoặc lưu yêu thích
           </Text>
 
-          <TouchableOpacity style={styles.loginButton} activeOpacity={0.85} onPress={handleLoginPress}>
+          <TouchableOpacity style={styles.loginButton} activeOpacity={0.85} onPress={handleExplorePress}>
             <LinearGradient
               colors={["#2563eb", "#0891b2"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.loginButtonGradient}
             >
-              <Text style={styles.loginButtonText}>Đăng nhập ngay</Text>
+              <MaterialCommunityIcons name="home-search" size={20} color="#fff" />
+              <Text style={styles.loginButtonText}>Khám phá homestay</Text>
               <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
             </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.85} onPress={handleLoginPress}>
+            <Text style={styles.secondaryButtonText}>Đăng nhập</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.registerRow} activeOpacity={0.7} onPress={handleRegisterPress}>
+            <Text style={styles.registerText}>Chưa có tài khoản? </Text>
+            <Text style={styles.registerLink}>Đăng ký</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.aboutButton} activeOpacity={0.7} onPress={handleAboutPress}>
@@ -232,6 +250,15 @@ const styles = StyleSheet.create({
     gap: 8, paddingVertical: 16,
   },
   loginButtonText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  secondaryButton: {
+    paddingVertical: 14, borderRadius: 14, alignItems: "center",
+    backgroundColor: "#fff", borderWidth: 1.5, borderColor: colors.primary[300],
+    marginBottom: 8,
+  },
+  secondaryButtonText: { fontSize: 15, fontWeight: "700", color: colors.primary[600] },
+  registerRow: { flexDirection: "row", justifyContent: "center", marginBottom: 12 },
+  registerText: { fontSize: 14, color: colors.text.secondary },
+  registerLink: { fontSize: 14, fontWeight: "700", color: colors.cyan[600] },
   aboutButton: {
     paddingVertical: 14, borderRadius: 14, alignItems: "center",
     borderWidth: 1.5, borderColor: colors.primary[300],

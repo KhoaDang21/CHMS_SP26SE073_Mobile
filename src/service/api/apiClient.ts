@@ -27,9 +27,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 }
 
+function buildQuery(params?: Record<string, string | number | boolean | undefined | null>) {
+  if (!params) return "";
+  const entries = Object.entries(params).filter(
+    ([, v]) => v !== undefined && v !== null && v !== "",
+  );
+  if (!entries.length) return "";
+  const qs = new URLSearchParams();
+  for (const [k, v] of entries) qs.append(k, String(v));
+  return `?${qs.toString()}`;
+}
+
 export const apiClient = {
-  get<T>(endpoint: string) {
-    return request<T>(endpoint, { method: "GET" });
+  get<T>(endpoint: string, params?: Record<string, string | number | boolean | undefined | null>) {
+    return request<T>(`${endpoint}${buildQuery(params)}`, { method: "GET" });
   },
   post<T>(endpoint: string, payload?: unknown) {
     return request<T>(endpoint, {

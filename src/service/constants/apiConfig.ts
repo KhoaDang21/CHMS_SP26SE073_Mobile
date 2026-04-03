@@ -79,9 +79,13 @@ export const apiConfig = {
     ai: {
       chat: "/api/ai/chat",
       chatHistory: "/api/ai/chat/history",
+      deleteChatHistory: "/api/ai/chat/history",
       recommendations: "/api/ai/recommendations",
       faq: "/api/ai/faq",
       askFaq: "/api/ai/faq/ask",
+    },
+    districts: {
+      list: "/api/districts",
     },
     promotions: {
       activeForCustomer: "/api/promotions/active",

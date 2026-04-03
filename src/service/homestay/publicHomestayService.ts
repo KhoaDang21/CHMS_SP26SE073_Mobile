@@ -1,24 +1,33 @@
 import { apiClient } from "@/service/api/apiClient";
+import { extractPagedItems } from "@/service/api/responseHelpers";
 import { apiConfig } from "@/service/constants/apiConfig";
 import type { Homestay } from "@/types";
 
-const mapHomestay = (it: any): Homestay => ({
+const mapHomestay = (it: Record<string, unknown>): Homestay => ({
   id: String(it.id ?? it.Id ?? ""),
-  name: it.name ?? it.Name ?? "",
-  description: it.description ?? it.Description ?? "",
-  address: it.address ?? it.Address ?? "",
-  districtName: it.districtName ?? it.DistrictName ?? "",
-  provinceName: it.provinceName ?? it.ProvinceName ?? "",
-  pricePerNight: Number(it.pricePerNight ?? it.PricePerNight ?? 0),
+  name: String(it.name ?? it.Name ?? ""),
+  description: String(it.description ?? it.Description ?? ""),
+  address: String(it.address ?? it.Address ?? ""),
+  districtName: String(it.districtName ?? it.DistrictName ?? ""),
+  provinceName: String(it.provinceName ?? it.ProvinceName ?? ""),
+  pricePerNight: Number(it.pricePerNight ?? it.PricePerNight ?? it.price ?? 0),
   maxGuests: Number(it.maxGuests ?? it.MaxGuests ?? 1),
   bedrooms: Number(it.bedrooms ?? it.Bedrooms ?? 0),
   bathrooms: Number(it.bathrooms ?? it.Bathrooms ?? 0),
-  images: it.images ?? it.ImageUrls ?? it.imageUrls ?? [],
-  amenities: it.amenities ?? it.AmenityNames ?? [],
-  ownerName: it.ownerName ?? it.OwnerName ?? "",
-  depositPercentage: it.depositPercentage ?? it.DepositPercentage ?? 50,
-  averageRating: it.averageRating ?? it.AverageRating ?? undefined,
-  reviewCount: it.reviewCount ?? it.ReviewCount ?? undefined,
+  images: (it.images ?? it.ImageUrls ?? it.imageUrls ?? []) as string[],
+  amenities: (it.amenities ?? it.AmenityNames ?? it.amenityNames ?? []) as string[],
+  ownerName: String(it.ownerName ?? it.OwnerName ?? ""),
+  depositPercentage: Number(it.depositPercentage ?? it.DepositPercentage ?? 50),
+  averageRating:
+    it.averageRating != null || it.AverageRating != null
+      ? Number(it.averageRating ?? it.AverageRating)
+      : it.rating != null || it.Rating != null
+        ? Number(it.rating ?? it.Rating)
+        : undefined,
+  reviewCount:
+    it.reviewCount != null || it.ReviewCount != null
+      ? Number(it.reviewCount ?? it.ReviewCount)
+      : undefined,
 });
 
 export interface HomestayFilters {
@@ -29,42 +38,78 @@ export interface HomestayFilters {
   guestsCount?: number;
   minPrice?: number;
   maxPrice?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+const reviewSummaryCache = new Map<string, { avg: number; count: number }>();
+
+/** Align with FE HomestayCard.fetchReviewSummary */
+export async function fetchReviewSummary(homestayId: string): Promise<{ avg: number; count: number }> {
+  if (reviewSummaryCache.has(homestayId)) return reviewSummaryCache.get(homestayId)!;
+  try {
+    const res = await apiClient.get<unknown>(
+      apiConfig.endpoints.publicHomestays.reviews(homestayId),
+    );
+    const list = Array.isArray((res as any)?.data)
+      ? (res as any).data
+      : Array.isArray(res)
+        ? res
+        : [];
+    if (!list.length) {
+      const empty = { avg: 0, count: 0 };
+      reviewSummaryCache.set(homestayId, empty);
+      return empty;
+    }
+    const avg =
+      list.reduce((s: number, r: { rating?: number }) => s + (Number(r?.rating) || 0), 0) /
+      list.length;
+    const summary = { avg: Math.round(avg * 10) / 10, count: list.length };
+    reviewSummaryCache.set(homestayId, summary);
+    return summary;
+  } catch {
+    return { avg: 0, count: 0 };
+  }
 }
 
 export const publicHomestayService = {
+  /**
+   * GET /api/homestays — paged list (FE passes page, pageSize).
+   */
   async list(filters?: HomestayFilters): Promise<Homestay[]> {
-    const params = new URLSearchParams();
-    if (filters?.province) params.append("province", filters.province);
-    if (filters?.district) params.append("district", filters.district);
-    if (filters?.checkIn) params.append("checkIn", filters.checkIn);
-    if (filters?.checkOut) params.append("checkOut", filters.checkOut);
-    if (filters?.guestsCount)
-      params.append("guestsCount", String(filters.guestsCount));
-    if (filters?.minPrice) params.append("minPrice", String(filters.minPrice));
-    if (filters?.maxPrice) params.append("maxPrice", String(filters.maxPrice));
+    const params: Record<string, string | number> = {
+      page: filters?.page ?? 1,
+      pageSize: filters?.pageSize ?? 100,
+    };
+    if (filters?.province) params.province = filters.province;
+    if (filters?.district) params.district = filters.district;
+    if (filters?.checkIn) params.checkIn = filters.checkIn;
+    if (filters?.checkOut) params.checkOut = filters.checkOut;
+    if (filters?.guestsCount != null) params.guestsCount = filters.guestsCount;
+    if (filters?.minPrice != null) params.minPrice = filters.minPrice;
+    if (filters?.maxPrice != null) params.maxPrice = filters.maxPrice;
 
-    const url = params.toString()
-      ? `${apiConfig.endpoints.homestays.list}?${params.toString()}`
-      : apiConfig.endpoints.homestays.list;
-    const res = await apiClient.get<any>(url);
-    const raw =
-      res?.data?.items ?? res?.data?.Items ?? res?.items ?? res?.Items ?? [];
-    return (Array.isArray(raw) ? raw : []).map(mapHomestay);
+    const res = await apiClient.get<unknown>(apiConfig.endpoints.homestays.list, params);
+    const raw = extractPagedItems(res);
+    return raw.map((it) => mapHomestay(it as Record<string, unknown>));
   },
+
   async getById(id: string): Promise<Homestay | null> {
-    const res = await apiClient.get<any>(
-      apiConfig.endpoints.homestays.detail(id),
-    );
-    const item = res?.data ?? res;
-    if (!item) return null;
-    return mapHomestay(item);
+    const res = await apiClient.get<unknown>(apiConfig.endpoints.homestays.detail(id));
+    const r = res as Record<string, unknown>;
+    const payload = (r?.data ?? r) as Record<string, unknown> | undefined;
+    if (!payload || typeof payload !== "object") return null;
+    const it = (payload.item ?? payload.Item ?? payload.data ?? payload) as Record<string, unknown>;
+    if (!it || (it.id == null && it.Id == null)) return null;
+    return mapHomestay(it);
   },
-  async getPublicReviews(homestayId: string): Promise<any[]> {
+
+  async getPublicReviews(homestayId: string): Promise<unknown[]> {
     try {
-      const res = await apiClient.get<any>(
+      const res = await apiClient.get<unknown>(
         apiConfig.endpoints.publicHomestays.reviews(homestayId),
       );
-      const reviews = res?.data ?? res?.data?.reviews ?? res?.reviews ?? [];
+      const reviews = (res as any)?.data ?? (res as any)?.reviews ?? [];
       return Array.isArray(reviews) ? reviews : [];
     } catch {
       return [];

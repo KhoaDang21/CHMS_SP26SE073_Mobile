@@ -1,46 +1,58 @@
 import { apiClient } from "@/service/api/apiClient";
+import { extractArray } from "@/service/api/responseHelpers";
 import { apiConfig } from "@/service/constants/apiConfig";
-import type { Booking } from "@/types";
+import type { Booking, BookingStatus } from "@/types";
 
-const mapBooking = (item: any): Booking => ({
-  id: item.id,
-  homestayId: item.homestayId,
-  homestayName: item.homestayName,
-  checkIn: item.checkIn,
-  checkOut: item.checkOut,
-  guestsCount: item.guestsCount,
-  totalPrice: item.totalPrice,
-  depositAmount: item.depositAmount,
-  remainingAmount: item.remainingAmount,
-  paymentStatus: item.paymentStatus,
-  status: String(item.status || "PENDING").toUpperCase() as Booking["status"],
-  contactPhone: item.contactPhone,
-  specialRequests: item.specialRequests,
-  createdAt: item.createdAt,
+const normalizeStatus = (raw: unknown): BookingStatus => {
+  const v = String(raw || "").toUpperCase();
+  if (v === "CONFIRMED") return "CONFIRMED";
+  if (v === "CANCELLED") return "CANCELLED";
+  if (v === "COMPLETED") return "COMPLETED";
+  if (v === "REJECTED") return "REJECTED";
+  if (v === "CHECKED_IN") return "CHECKED_IN";
+  return "PENDING";
+};
+
+const mapBooking = (item: Record<string, unknown>): Booking => ({
+  id: String(item.id ?? item.Id ?? ""),
+  homestayId: String(item.homestayId ?? item.HomestayId ?? ""),
+  homestayName: (item.homestayName ?? item.HomestayName) as string | undefined,
+  checkIn: String(item.checkIn ?? item.CheckIn ?? ""),
+  checkOut: String(item.checkOut ?? item.CheckOut ?? ""),
+  guestsCount: Number(item.guestsCount ?? item.GuestsCount ?? 0),
+  totalPrice: (item.totalPrice ?? item.TotalPrice) as number | undefined,
+  depositAmount: (item.depositAmount ?? item.DepositAmount) as number | undefined,
+  remainingAmount: (item.remainingAmount ?? item.RemainingAmount) as number | undefined,
+  paymentStatus: (item.paymentStatus ?? item.PaymentStatus) as Booking["paymentStatus"],
+  status: normalizeStatus(item.status ?? item.Status),
+  contactPhone: (item.contactPhone ?? item.ContactPhone) as string | undefined,
+  specialRequests: (item.specialRequests ?? item.SpecialRequests) as string | undefined,
+  createdAt: (item.createdAt ?? item.CreatedAt) as string | undefined,
 });
 
 export const bookingService = {
   async getMyBookings(): Promise<Booking[]> {
-    const res = await apiClient.get<any>(apiConfig.endpoints.bookings.list);
-    const list = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-        ? res
-        : [];
-    return list.map(mapBooking);
+    try {
+      const res = await apiClient.get<unknown>(apiConfig.endpoints.bookings.list);
+      const list = extractArray<Record<string, unknown>>(res);
+      return list.map(mapBooking);
+    } catch {
+      return [];
+    }
   },
+
   async getBookingDetail(id: string): Promise<Booking | null> {
     try {
-      const res = await apiClient.get<any>(
-        apiConfig.endpoints.bookings.detail(id),
-      );
-      const item = res?.data ?? res;
-      if (!item) return null;
-      return mapBooking(item);
+      const res = await apiClient.get<unknown>(apiConfig.endpoints.bookings.detail(id));
+      const r = res as Record<string, unknown>;
+      const raw = (r?.data ?? r) as Record<string, unknown>;
+      if (!raw?.id && !raw?.Id) return null;
+      return mapBooking(raw);
     } catch {
       return null;
     }
   },
+
   async createBooking(payload: {
     homestayId: string;
     checkIn: string;
@@ -49,16 +61,23 @@ export const bookingService = {
     contactPhone: string;
     specialRequests?: string;
   }) {
-    const res = await apiClient.post<any>(
+    const res = await apiClient.post<Record<string, unknown>>(
       apiConfig.endpoints.bookings.create,
       payload,
     );
+    const bookingData = res?.data;
+    const success = Boolean(res?.success ?? true);
+    const message = String(res?.message ?? "Đặt phòng thành công!");
     return {
-      success: Boolean(res?.success ?? true),
-      message: res?.message ?? "Dat phong thanh cong",
-      data: res?.data ? mapBooking(res.data) : undefined,
+      success,
+      message,
+      data:
+        bookingData && typeof bookingData === "object" && !Array.isArray(bookingData)
+          ? mapBooking(bookingData as Record<string, unknown>)
+          : undefined,
     };
   },
+
   async modifyBooking(
     id: string,
     payload: {
@@ -69,31 +88,37 @@ export const bookingService = {
       specialRequests?: string;
     },
   ) {
-    const res = await apiClient.put<any>(
+    const res = await apiClient.put<Record<string, unknown>>(
       apiConfig.endpoints.bookings.modify(id),
       payload,
     );
     return {
       success: Boolean(res?.success ?? true),
-      message: res?.message ?? "Cap nhat booking thanh cong",
-      data: res?.data ? mapBooking(res.data) : undefined,
+      message: String(res?.message ?? "Cập nhật booking thành công"),
+      data:
+        res?.data && typeof res.data === "object" && !Array.isArray(res.data)
+          ? mapBooking(res.data as Record<string, unknown>)
+          : undefined,
     };
   },
+
   async cancelBooking(id: string) {
-    const res = await apiClient.post<any>(
+    const res = await apiClient.post<Record<string, unknown>>(
       apiConfig.endpoints.bookings.cancel(id),
     );
     return {
       success: Boolean(res?.success ?? true),
-      message: res?.message ?? "Da huy booking",
+      message: String(res?.message ?? "Đã hủy booking"),
     };
   },
-  async getCancellationPolicy(id: string): Promise<any> {
+
+  async getCancellationPolicy(id: string): Promise<unknown> {
     try {
-      const res = await apiClient.get<any>(
+      const res = await apiClient.get<unknown>(
         apiConfig.endpoints.bookings.cancellationPolicy(id),
       );
-      return res?.data ?? res;
+      const r = res as Record<string, unknown>;
+      return r?.data ?? res;
     } catch {
       return null;
     }

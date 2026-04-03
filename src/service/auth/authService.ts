@@ -9,9 +9,13 @@ export const authService = {
       email,
       password,
     });
-    const token = res?.data?.accessToken || res?.data?.token || res?.token;
-    const refreshToken = res?.data?.refreshToken || null;
-    const sourceUser = res?.data?.user || res?.data;
+    const token =
+      res?.data?.accessToken ||
+      res?.data?.token ||
+      res?.accessToken ||
+      res?.token;
+    const refreshToken = res?.data?.refreshToken || res?.refreshToken || null;
+    const sourceUser = res?.data?.user || res?.data?.User || res?.user || res?.data;
     const user: User = {
       id: sourceUser?.id || sourceUser?.email || "",
       email: sourceUser?.email || "",
@@ -72,9 +76,10 @@ export const authService = {
         idToken: googleToken,
       },
     );
-    const token = res?.data?.accessToken || res?.data?.token;
-    const refreshToken = res?.data?.refreshToken || null;
-    const sourceUser = res?.data?.user || res?.data;
+    const token =
+      res?.data?.accessToken || res?.data?.token || res?.accessToken || res?.token;
+    const refreshToken = res?.data?.refreshToken || res?.refreshToken || null;
+    const sourceUser = res?.data?.user || res?.data?.User || res?.user || res?.data;
     const user: User = {
       id: sourceUser?.id || sourceUser?.email || "",
       email: sourceUser?.email || "",

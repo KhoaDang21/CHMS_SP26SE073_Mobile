@@ -39,12 +39,16 @@ export default function ChatScreen() {
             try {
                 const history = await aiService.getChatHistory();
                 if (history && Array.isArray(history)) {
-                    const formattedMessages = history.map((msg: any, idx: number) => ({
-                        id: `history-${idx}`,
-                        text: msg.message || msg.text || String(msg),
-                        sender: (msg.sender === "user" ? "user" : "ai") as "user" | "ai",
-                        timestamp: new Date(msg.timestamp || Date.now()),
-                    }));
+                    const formattedMessages = history.map((msg: any, idx: number) => {
+                        const raw = String(msg.sender ?? msg.role ?? "").toLowerCase();
+                        const sender: "user" | "ai" = raw.includes("user") ? "user" : "ai";
+                        return {
+                            id: `history-${msg.id ?? idx}`,
+                            text: msg.message || msg.text || String(msg),
+                            sender,
+                            timestamp: new Date(msg.timestamp || msg.createdAt || Date.now()),
+                        };
+                    });
                     setMessages(formattedMessages);
                 }
             } catch (error) {
@@ -82,10 +86,10 @@ export default function ChatScreen() {
         setAiLoading(true);
 
         try {
-            const aiResponse = await aiService.sendMessage(inputText.trim());
+            const aiText = await aiService.sendMessage(inputText.trim());
             const aiMessage: Message = {
                 id: `msg-${Date.now()}-ai`,
-                text: typeof aiResponse === "string" ? aiResponse : "Xin lỗi, tôi không thể trả lời câu hỏi này.",
+                text: aiText?.trim() || "Xin lỗi, tôi không thể trả lời câu hỏi này.",
                 sender: "ai",
                 timestamp: new Date(),
             };
@@ -113,18 +117,22 @@ export default function ChatScreen() {
         setSending(true);
         try {
             const recommendations = await aiService.getRecommendations();
-            if (recommendations) {
-                const recText = Array.isArray(recommendations)
-                    ? recommendations.join("\n")
-                    : String(recommendations);
-                const aiMessage: Message = {
-                    id: `msg-${Date.now()}-rec`,
-                    text: `Gợi ý cho bạn:\n\n${recText}`,
-                    sender: "ai",
-                    timestamp: new Date(),
-                };
-                setMessages((prev) => [...prev, aiMessage]);
-            }
+            const recText =
+                recommendations?.length > 0
+                    ? recommendations
+                          .map(
+                              (r) =>
+                                  `• ${r.homestayName} — ₫${r.price.toLocaleString("vi-VN")}/đêm (★${r.rating})\n  ${r.reason}`,
+                          )
+                          .join("\n\n")
+                    : "Hiện chưa có gợi ý phù hợp. Hãy thử mô tả sở thích của bạn trong ô chat.";
+            const aiMessage: Message = {
+                id: `msg-${Date.now()}-rec`,
+                text: `Gợi ý cho bạn:\n\n${recText}`,
+                sender: "ai",
+                timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, aiMessage]);
         } catch (error) {
             showToast("Không thể lấy gợi ý", "error");
         } finally {
