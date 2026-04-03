@@ -119,7 +119,7 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
     flex: { flex: 1 },
     container: { flex: 1, backgroundColor: "#f0f7ff" },
-    scrollContent: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 16 },
+    scrollContent: { flexGrow: 1, paddingHorizontal: 0, paddingVertical: 0 },
     backButton: { width: 40, height: 40, justifyContent: "center", alignItems: "flex-start", marginBottom: 8 },
     header: { alignItems: "center", marginBottom: 28 },
     iconContainer: {

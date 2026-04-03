@@ -150,7 +150,7 @@ export default function ChatScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={["right", "left", "bottom"]}>
+        <SafeAreaView style={styles.container} edges={["top", "right", "left", "bottom"]}>
             <Header title="AI Chat - Trợ Lý Booking" showBack={false} />
 
             <FlatList

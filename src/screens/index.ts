@@ -2,7 +2,7 @@ export { default as AboutScreen } from "@/screens/AboutScreen";
 export { default as BookingEditScreen } from "@/screens/BookingEditScreen";
 export { default as BookingsScreen } from "@/screens/BookingsScreen";
 export { default as ChatScreen } from "@/screens/ChatScreen";
-export { default as ContactPage } from "@/screens/ContactPage";
+export { default as ContactScreen } from "@/screens/ContactScreen";
 export { default as ForgotPasswordScreen } from "@/screens/ForgotPasswordScreen";
 export { default as HomeScreen } from "@/screens/HomeScreen";
 export { default as HomestayDetailScreen } from "@/screens/HomestayDetailScreen";

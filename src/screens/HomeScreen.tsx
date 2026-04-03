@@ -1,8 +1,7 @@
 import {
   EmptyState,
   HomestayCard,
-  LoadingSkeletonCard,
-  SectionTitle,
+  LoadingSkeletonCard
 } from "@/components";
 import { tokenStorage } from "@/service/auth/tokenStorage";
 import { bookingService } from "@/service/booking/bookingService";
@@ -23,6 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -31,12 +31,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [allHomestays, setAllHomestays] = useState<Homestay[]>([]);
   const [homestays, setHomestays] = useState<Homestay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,15 +65,19 @@ export default function HomeScreen() {
     try {
       const items = await publicHomestayService.list({ page: 1, pageSize: 100 });
       const summaries = await Promise.allSettled(items.map((h) => fetchReviewSummary(h.id)));
-      const sorted = [...items].sort((a, b) => {
-        const ia = items.indexOf(a);
-        const ib = items.indexOf(b);
-        const sa = summaries[ia];
-        const sb = summaries[ib];
-        const avgA = sa.status === "fulfilled" ? sa.value.avg : 0;
-        const avgB = sb.status === "fulfilled" ? sb.value.avg : 0;
-        const cntA = sa.status === "fulfilled" ? sa.value.count : 0;
-        const cntB = sb.status === "fulfilled" ? sb.value.count : 0;
+      const withRatings = items.map((h, i) => {
+        const s = summaries[i];
+        return {
+          ...h,
+          averageRating: s.status === "fulfilled" && s.value.count > 0 ? s.value.avg : h.averageRating,
+          reviewCount: s.status === "fulfilled" ? s.value.count : h.reviewCount ?? 0,
+        };
+      });
+      const sorted = [...withRatings].sort((a, b) => {
+        const avgA = a.averageRating ?? 0;
+        const avgB = b.averageRating ?? 0;
+        const cntA = a.reviewCount ?? 0;
+        const cntB = b.reviewCount ?? 0;
         if (avgB !== avgA) return avgB - avgA;
         return cntB - cntA;
       });
@@ -98,11 +103,11 @@ export default function HomeScreen() {
     });
     tokenStorage.getToken().then((t) => {
       if (t) {
-        bookingService.getMyBookings().then(setMyBookings).catch(() => {});
+        bookingService.getMyBookings().then(setMyBookings).catch(() => { });
         wishlistService
           .getMyWishlist()
           .then((list) => setWishlistIds(new Set(list.map((h) => h.id))))
-          .catch(() => {});
+          .catch(() => { });
       } else {
         setMyBookings([]);
         setWishlistIds(new Set());
@@ -187,11 +192,11 @@ export default function HomeScreen() {
     loadHomestays();
     tokenStorage.getToken().then((t) => {
       if (t) {
-        bookingService.getMyBookings().then(setMyBookings).catch(() => {});
+        bookingService.getMyBookings().then(setMyBookings).catch(() => { });
         wishlistService
           .getMyWishlist()
           .then((list) => setWishlistIds(new Set(list.map((h) => h.id))))
-          .catch(() => {});
+          .catch(() => { });
       }
     });
   }, [loadHomestays]);
@@ -252,17 +257,20 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <FlatList
+        key="home-2col"
         data={loading ? Array(4).fill(null) : filteredHomestays}
         keyExtractor={(item, index) =>
           loading ? `skeleton-${index}` : item?.id || `homestay-${index}`
         }
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
         renderItem={({ item }) => {
-          if (loading) return <LoadingSkeletonCard />;
+          if (loading) return <LoadingSkeletonCard compact />;
           const booked = bookedHomestayIds.has(item!.id);
           return (
-            <View>
+            <View style={styles.cardWrapper}>
               <HomestayCard
                 id={item!.id}
                 name={item!.name}
@@ -278,10 +286,11 @@ export default function HomeScreen() {
                 onPress={() => navigation.navigate("HomestayDetail", { id: item!.id })}
                 onWishlistPress={() => handleWishlistToggle(item!.id)}
                 isFavorite={wishlistIds.has(item!.id)}
+                compact
               />
-              {booked ? (
+              {booked && (selectedProvince || selectedDistrict) ? (
                 <View style={styles.bookedPill}>
-                  <Text style={styles.bookedPillText}>Bạn đã có đặt phòng trong khoảng ngày này</Text>
+                  <Text style={styles.bookedPillText}>Đã đặt trong khoảng này</Text>
                 </View>
               ) : null}
             </View>
@@ -293,7 +302,7 @@ export default function HomeScreen() {
               colors={["#1d4ed8", "#0891b2"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.heroBanner}
+              style={[styles.heroBanner, { paddingTop: insets.top + 16 }]}
             >
               <View style={styles.heroTop}>
                 <View>
@@ -378,7 +387,6 @@ export default function HomeScreen() {
               ) : null}
             </View>
 
-            <SectionTitle title="Homestay nổi bật" subtitle="Ưu tiên đánh giá cao (giống trang web)" />
           </View>
         }
         ListEmptyComponent={
@@ -396,6 +404,63 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0891b2" />
         }
+        ListFooterComponent={() => (
+          <View style={styles.footerSection}>
+            {/* Quick links */}
+            <View style={styles.footerGrid}>
+              <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate("MainTabs" as never, { screen: "Bookings" } as never)}>
+                <MaterialCommunityIcons name="calendar-check-outline" size={24} color="#0891b2" />
+                <Text style={styles.footerItemText}>Đặt phòng</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate("MainTabs" as never, { screen: "Wishlist" } as never)}>
+                <MaterialCommunityIcons name="heart-outline" size={24} color="#0891b2" />
+                <Text style={styles.footerItemText}>Yêu thích</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate("Support" as never)}>
+                <MaterialCommunityIcons name="lifebuoy" size={24} color="#0891b2" />
+                <Text style={styles.footerItemText}>Hỗ trợ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate("MainTabs" as never, { screen: "Profile" } as never)}>
+                <MaterialCommunityIcons name="account-outline" size={24} color="#0891b2" />
+                <Text style={styles.footerItemText}>Hồ sơ</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.footerDivider} />
+            {/* Contact info */}
+            <View style={styles.footerContact}>
+              <TouchableOpacity style={styles.footerContactItem} onPress={() => Linking.openURL("tel:+84123456789")}>
+                <MaterialCommunityIcons name="phone" size={14} color="#0891b2" />
+                <Text style={styles.footerContactText}>+84 123 456 789</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.footerContactItem} onPress={() => Linking.openURL("mailto:support@chms.vn")}>
+                <MaterialCommunityIcons name="email" size={14} color="#0891b2" />
+                <Text style={styles.footerContactText}>support@chms.vn</Text>
+              </TouchableOpacity>
+              <View style={styles.footerContactItem}>
+                <MaterialCommunityIcons name="map-marker" size={14} color="#0891b2" />
+                <Text style={styles.footerContactText}>FPT University, Hồ Chí Minh</Text>
+              </View>
+            </View>
+            {/* Social */}
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL("https://facebook.com")}>
+                <MaterialCommunityIcons name="facebook" size={20} color="#1877f2" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL("https://instagram.com")}>
+                <MaterialCommunityIcons name="instagram" size={20} color="#e1306c" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL("https://twitter.com")}>
+                <MaterialCommunityIcons name="twitter" size={20} color="#1da1f2" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL("https://youtube.com")}>
+                <MaterialCommunityIcons name="youtube" size={20} color="#ff0000" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.footerDivider} />
+            <Text style={styles.footerCopy}>© 2026 CHMS - SP26SE073. All rights reserved.</Text>
+            <Text style={styles.footerMade}>Made with ❤️ by FPT University</Text>
+          </View>
+        )}
       />
 
       {showCheckInPicker && (
@@ -483,8 +548,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc" },
-  listContent: { paddingBottom: 24 },
-  heroBanner: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
+  listContent: { paddingBottom: 0 },
+  columnWrapper: { gap: 10, marginBottom: 10, paddingHorizontal: 12 },
+  cardWrapper: { flex: 1 },
+  heroBanner: { paddingHorizontal: 16, paddingBottom: 20 },
   heroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
   heroGreeting: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 4 },
   heroTitle: { fontSize: 22, fontWeight: "800", color: "#fff", lineHeight: 28 },
@@ -524,11 +591,30 @@ const styles = StyleSheet.create({
   resultsText: { fontSize: 13, color: "#64748b", fontWeight: "500" },
   clearText: { fontSize: 13, color: "#0891b2", fontWeight: "600" },
   bookedPill: {
-    marginHorizontal: 16, marginTop: -8, marginBottom: 8,
-    backgroundColor: "#fef3c7", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8,
-    alignSelf: "flex-start",
+    marginTop: 4, marginBottom: 8,
+    backgroundColor: "#fef3c7", paddingVertical: 5, paddingHorizontal: 8, borderRadius: 6,
   },
-  bookedPillText: { fontSize: 11, color: "#92400e", fontWeight: "600" },
+  bookedPillText: { fontSize: 10, color: "#92400e", fontWeight: "600" },
+  footerSection: {
+    backgroundColor: "#0f172a", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24,
+  },
+  footerGrid: {
+    flexDirection: "row", justifyContent: "space-around", marginBottom: 20,
+  },
+  footerItem: { alignItems: "center", gap: 6 },
+  footerItemText: { fontSize: 11, fontWeight: "600", color: "#e2e8f0", textAlign: "center" },
+  footerContact: { gap: 8, marginBottom: 16 },
+  footerContactItem: { flexDirection: "row", alignItems: "center", gap: 8 },
+  footerContactText: { fontSize: 12, color: "#94a3b8" },
+  socialRow: { flexDirection: "row", justifyContent: "center", gap: 12, marginBottom: 16 },
+  socialBtn: {
+    width: 40, height: 40, borderRadius: 10,
+    backgroundColor: "#1e293b", justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: "#334155",
+  },
+  footerDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.08)", marginBottom: 12 },
+  footerCopy: { fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", marginBottom: 4 },
+  footerMade: { fontSize: 11, color: "rgba(255,255,255,0.4)", textAlign: "center" },
   modalOverlay: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end",
   },

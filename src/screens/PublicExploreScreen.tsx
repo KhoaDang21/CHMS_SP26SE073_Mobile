@@ -4,12 +4,12 @@ import {
   LoadingSkeletonCard,
   SectionTitle,
 } from "@/components";
-import { districtService, type District } from "@/service/location/districtService";
-import { provinceService, type Province } from "@/service/location/provinceService";
 import {
   fetchReviewSummary,
   publicHomestayService,
 } from "@/service/homestay/publicHomestayService";
+import { districtService, type District } from "@/service/location/districtService";
+import { provinceService, type Province } from "@/service/location/provinceService";
 import type { Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
@@ -29,10 +29,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function PublicExploreScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [allDistricts, setAllDistricts] = useState<District[]>([]);
   const [filteredDistricts, setFilteredDistricts] = useState<District[]>([]);
@@ -54,15 +55,19 @@ export default function PublicExploreScreen() {
     try {
       const items = await publicHomestayService.list({ page: 1, pageSize: 100 });
       const summaries = await Promise.allSettled(items.map((h) => fetchReviewSummary(h.id)));
-      const sorted = [...items].sort((a, b) => {
-        const ia = items.indexOf(a);
-        const ib = items.indexOf(b);
-        const sa = summaries[ia];
-        const sb = summaries[ib];
-        const avgA = sa.status === "fulfilled" ? sa.value.avg : 0;
-        const avgB = sb.status === "fulfilled" ? sb.value.avg : 0;
-        const cntA = sa.status === "fulfilled" ? sa.value.count : 0;
-        const cntB = sb.status === "fulfilled" ? sb.value.count : 0;
+      const withRatings = items.map((h, i) => {
+        const s = summaries[i];
+        return {
+          ...h,
+          averageRating: s.status === "fulfilled" && s.value.count > 0 ? s.value.avg : h.averageRating,
+          reviewCount: s.status === "fulfilled" ? s.value.count : h.reviewCount ?? 0,
+        };
+      });
+      const sorted = [...withRatings].sort((a, b) => {
+        const avgA = a.averageRating ?? 0;
+        const avgB = b.averageRating ?? 0;
+        const cntA = a.reviewCount ?? 0;
+        const cntB = b.reviewCount ?? 0;
         if (avgB !== avgA) return avgB - avgA;
         return cntB - cntA;
       });
@@ -148,12 +153,12 @@ export default function PublicExploreScreen() {
   const displayHomestays = homestays;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <LinearGradient
         colors={["#1d4ed8", "#0891b2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.hero}
+        style={[styles.hero, { paddingTop: insets.top + 8 }]}
       >
         <View style={styles.heroTop}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -373,7 +378,7 @@ export default function PublicExploreScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc" },
   hero: { paddingHorizontal: 16, paddingBottom: 16 },
-  heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.2)", justifyContent: "center", alignItems: "center",

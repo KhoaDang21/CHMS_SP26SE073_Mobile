@@ -3,18 +3,18 @@ import {
   BookingEditScreen,
   BookingsScreen,
   ChatScreen,
-  ContactPage,
+  ContactScreen,
   ForgotPasswordScreen,
   HomeScreen,
   HomestayDetailScreen,
   LandingScreen,
   LoginScreen,
-  PublicExploreScreen,
   NotificationPreferencesScreen,
   NotificationsScreen,
   PaymentInitiationScreen,
   PaymentResultScreen,
   ProfileScreen,
+  PublicExploreScreen,
   RegisterScreen,
   ResetPasswordScreen,
   ReviewsScreen,
@@ -54,6 +54,7 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
   ResetPassword: { email: string };
   About: undefined;
+  Contact: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -73,6 +74,7 @@ function AuthStackScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
       <AuthStackNavigator.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <AuthStackNavigator.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <AuthStackNavigator.Screen name="About" component={AboutScreen} />
+      <AuthStackNavigator.Screen name="Contact" component={ContactScreen} />
     </AuthStackNavigator.Navigator>
   );
 }
@@ -237,7 +239,6 @@ export default function RootNavigator() {
                 name="PaymentInitiation"
                 component={PaymentInitiationScreen}
               />
-              <Stack.Screen name="Contact" component={ContactPage} />
               <Stack.Screen
                 name="PaymentResult"
                 component={PaymentResultScreen}

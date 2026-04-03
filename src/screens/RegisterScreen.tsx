@@ -19,10 +19,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function RegisterScreen() {
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
     const [showPassword, setShowPassword] = useState(false);
     const [step, setStep] = useState<"form" | "otp">("form");
     const [email, setEmail] = useState("");
@@ -47,42 +48,33 @@ export default function RegisterScreen() {
         defaultValues: { otp: "" },
     });
 
-    const onRegister = useCallback(
-        async (data: RegisterFormData) => {
-            try {
-                await authService.register({
-                    fullName: data.fullName.trim(),
-                    email: data.email.trim(),
-                    phone: data.phone.trim(),
-                    password: data.password,
-                });
-                setEmail(data.email.trim());
-                setStep("otp");
-                showToast("Đã đăng ký — kiểm tra email để lấy mã OTP", "success");
-            } catch (e: any) {
-                logger.error("Register failed", e);
-                showToast(e?.message || "Không thể đăng ký", "error");
-            }
-        },
-        []
-    );
+    const onRegister = useCallback(async (data: RegisterFormData) => {
+        try {
+            await authService.register({
+                fullName: data.fullName.trim(),
+                email: data.email.trim(),
+                phone: data.phone.trim(),
+                password: data.password,
+            });
+            setEmail(data.email.trim());
+            setStep("otp");
+            showToast("Đã đăng ký — kiểm tra email để lấy mã OTP", "success");
+        } catch (e: any) {
+            logger.error("Register failed", e);
+            showToast(e?.message || "Không thể đăng ký", "error");
+        }
+    }, []);
 
-    const onVerifyOtp = useCallback(
-        async (data: { otp: string }) => {
-            try {
-                await authService.verifyOtp(email, data.otp);
-                // Sau khi verify OTP thành công, tự động đăng nhập
-                // note: Cần implement đầy đủ flow này với email/password
-                showToast("Xác minh email thành công!", "success");
-                // Navigate to Login
-                navigation.goBack();
-            } catch (e: any) {
-                logger.error("OTP verification failed", e);
-                showToast(e?.message || "Mã OTP không đúng", "error");
-            }
-        },
-        [email, navigation]
-    );
+    const onVerifyOtp = useCallback(async (data: { otp: string }) => {
+        try {
+            await authService.verifyOtp(email, data.otp);
+            showToast("Xác minh email thành công! Vui lòng đăng nhập", "success");
+            navigation.navigate("Login");
+        } catch (e: any) {
+            logger.error("OTP verification failed", e);
+            showToast(e?.message || "Mã OTP không đúng", "error");
+        }
+    }, [email, navigation]);
 
     const getPasswordStrength = (pass: string) => {
         if (!pass) return 0;
@@ -98,63 +90,70 @@ export default function RegisterScreen() {
     const strengthColor =
         strength <= 1 ? "#ef4444" : strength <= 2 ? "#f97316" : strength <= 3 ? "#eab308" : "#22c55e";
 
+    // OTP Step
     if (step === "otp") {
         return (
-            <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-                <KeyboardAvoidingView
-                    style={styles.flex}
-                    behavior={Platform.OS === "ios" ? "padding" : undefined}
-                >
-                    <ScrollView contentContainerStyle={styles.scrollContent}>
-                        <TouchableOpacity
-                            style={styles.backButton}
-                            onPress={() => setStep("form")}
-                            activeOpacity={0.7}
+            <SafeAreaView style={styles.container} edges={["bottom"]}>
+                <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                        <LinearGradient
+                            colors={["#0369a1", "#06b6d4"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.heroGradient, { paddingTop: insets.top + 12 }]}
                         >
-                            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text.primary} />
-                        </TouchableOpacity>
-
-                        <View style={styles.header}>
-                            <LinearGradient
-                                colors={["#2563eb", "#0891b2"]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.iconContainer}
-                            >
-                                <MaterialCommunityIcons name="email-check-outline" size={36} color="#fff" />
-                            </LinearGradient>
-                            <Text style={styles.title}>Xác minh Email</Text>
-                            <Text style={styles.subtitle}>Nhập mã OTP được gửi đến {email}</Text>
-                        </View>
+                            <TouchableOpacity style={styles.backButton} onPress={() => setStep("form")} activeOpacity={0.7}>
+                                <View style={styles.backButtonInner}>
+                                    <MaterialCommunityIcons name="arrow-left" size={20} color="#fff" />
+                                </View>
+                            </TouchableOpacity>
+                            <View style={styles.heroContent}>
+                                <View style={styles.iconContainer}>
+                                    <MaterialCommunityIcons name="email-check-outline" size={36} color="#fff" />
+                                </View>
+                                <Text style={styles.title}>Xác Minh Email</Text>
+                                <Text style={styles.subtitle}>Mã OTP đã gửi đến {email}</Text>
+                            </View>
+                        </LinearGradient>
 
                         <View style={styles.formCard}>
-                            <Controller
-                                control={otpControl}
-                                name="otp"
-                                render={({ field: { value, onChange } }) => (
-                                    <Input
-                                        label="Mã OTP (6 chữ số)"
-                                        placeholder="000000"
-                                        value={value}
-                                        onChangeText={(text) => onChange(text.replace(/[^0-9]/g, "").slice(0, 6))}
-                                        keyboardType="numeric"
-                                        icon="numeric"
-                                    />
-                                )}
-                            />
+                            <View style={styles.otpInfo}>
+                                <MaterialCommunityIcons name="shield-check-outline" size={18} color="#0369a1" />
+                                <Text style={styles.otpInfoText}>
+                                    Chúng tôi đã gửi mã xác minh 6 chữ số đến email của bạn
+                                </Text>
+                            </View>
+
+                            <View style={styles.fieldGroup}>
+                                <Controller
+                                    control={otpControl}
+                                    name="otp"
+                                    render={({ field: { value, onChange } }) => (
+                                        <Input
+                                            label="Mã OTP"
+                                            placeholder="000000"
+                                            value={value}
+                                            onChangeText={(text) => onChange(text.replace(/[^0-9]/g, "").slice(0, 6))}
+                                            keyboardType="numeric"
+                                            icon="numeric"
+                                        />
+                                    )}
+                                />
+                            </View>
 
                             <Button
-                                title={otpSubmitting ? "Xác minh..." : "Xác minh OTP"}
+                                title={otpSubmitting ? "Đang xác minh..." : "Xác Minh OTP"}
                                 onPress={handleOtpSubmit(onVerifyOtp)}
                                 loading={otpSubmitting}
                                 disabled={otpSubmitting}
                                 size="large"
                                 style={styles.button}
+                                gradient
                             />
 
                             <View style={styles.resendContainer}>
-                                <Text style={styles.resendText}>Không nhận được mã?</Text>
-                                <TouchableOpacity onPress={() => setStep("form")}>
+                                <Text style={styles.resendText}>Không nhận được mã? </Text>
+                                <TouchableOpacity onPress={() => setStep("form")} activeOpacity={0.7}>
                                     <Text style={styles.resendLink}>Gửi lại</Text>
                                 </TouchableOpacity>
                             </View>
@@ -165,102 +164,103 @@ export default function RegisterScreen() {
         );
     }
 
+    // Register Form Step
     return (
-        <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-            <KeyboardAvoidingView
-                style={styles.flex}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-            >
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
+        <SafeAreaView style={styles.container} edges={["bottom"]}>
+            <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <LinearGradient
+                        colors={["#0369a1", "#06b6d4"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.heroGradient, { paddingTop: insets.top + 12 }]}
                     >
-                        <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text.primary} />
-                    </TouchableOpacity>
-
-                    <View style={styles.header}>
-                        <LinearGradient
-                            colors={["#2563eb", "#0891b2"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.iconContainer}
-                        >
-                            <MaterialCommunityIcons name="account-plus" size={36} color="#fff" />
-                        </LinearGradient>
-                        <Text style={styles.title}>Đăng ký</Text>
-                        <Text style={styles.subtitle}>Tạo tài khoản mới để bắt đầu</Text>
-                    </View>
+                        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+                            <View style={styles.backButtonInner}>
+                                <MaterialCommunityIcons name="arrow-left" size={20} color="#fff" />
+                            </View>
+                        </TouchableOpacity>
+                        <View style={styles.heroContent}>
+                            <View style={styles.iconContainer}>
+                                <MaterialCommunityIcons name="account-plus" size={36} color="#fff" />
+                            </View>
+                            <Text style={styles.title}>Đăng Ký</Text>
+                            <Text style={styles.subtitle}>Tạo tài khoản mới để bắt đầu</Text>
+                        </View>
+                    </LinearGradient>
 
                     <View style={styles.formCard}>
-                        <Controller
-                            control={control}
-                            name="fullName"
-                            render={({ field: { value, onChange } }) => (
-                                <Input
-                                    label="Họ tên"
-                                    placeholder="Nhập họ tên"
-                                    value={value}
-                                    onChangeText={onChange}
-                                    error={errors.fullName?.message}
-                                    icon="account-outline"
-                                />
-                            )}
-                        />
-
-                        <Controller
-                            control={control}
-                            name="email"
-                            render={({ field: { value, onChange } }) => (
-                                <Input
-                                    label="Email"
-                                    placeholder="Nhập email"
-                                    value={value}
-                                    onChangeText={onChange}
-                                    error={errors.email?.message}
-                                    keyboardType="email-address"
-                                    icon="email-outline"
-                                />
-                            )}
-                        />
-
-                        <Controller
-                            control={control}
-                            name="phone"
-                            render={({ field: { value, onChange } }) => (
-                                <Input
-                                    label="Số điện thoại"
-                                    placeholder="Nhập số điện thoại"
-                                    value={value}
-                                    onChangeText={onChange}
-                                    error={errors.phone?.message}
-                                    keyboardType="numeric"
-                                    icon="phone-outline"
-                                />
-                            )}
-                        />
-
-                        <View style={styles.passwordWrapper}>
+                        <View style={styles.fieldGroup}>
                             <Controller
                                 control={control}
-                                name="password"
+                                name="fullName"
                                 render={({ field: { value, onChange } }) => (
                                     <Input
-                                        label="Mật khẩu"
-                                        placeholder="Tối thiểu 8 ký tự"
+                                        label="Họ & Tên"
+                                        placeholder="Nhập họ và tên"
                                         value={value}
                                         onChangeText={onChange}
-                                        error={errors.password?.message}
-                                        secureTextEntry={!showPassword}
-                                        icon="lock-outline"
+                                        error={errors.fullName?.message}
+                                        icon="account-outline"
                                     />
                                 )}
                             />
+                        </View>
+
+                        <View style={styles.fieldGroup}>
+                            <Controller
+                                control={control}
+                                name="email"
+                                render={({ field: { value, onChange } }) => (
+                                    <Input
+                                        label="Email"
+                                        placeholder="your@email.com"
+                                        value={value}
+                                        onChangeText={onChange}
+                                        error={errors.email?.message}
+                                        keyboardType="email-address"
+                                        icon="email-outline"
+                                    />
+                                )}
+                            />
+                        </View>
+
+                        <View style={styles.fieldGroup}>
+                            <Controller
+                                control={control}
+                                name="phone"
+                                render={({ field: { value, onChange } }) => (
+                                    <Input
+                                        label="Số Điện Thoại"
+                                        placeholder="0123456789"
+                                        value={value}
+                                        onChangeText={onChange}
+                                        error={errors.phone?.message}
+                                        keyboardType="numeric"
+                                        icon="phone-outline"
+                                    />
+                                )}
+                            />
+                        </View>
+
+                        <View style={styles.passwordWrapper}>
+                            <View style={styles.fieldGroup}>
+                                <Controller
+                                    control={control}
+                                    name="password"
+                                    render={({ field: { value, onChange } }) => (
+                                        <Input
+                                            label="Mật Khẩu"
+                                            placeholder="Tối thiểu 8 ký tự"
+                                            value={value}
+                                            onChangeText={onChange}
+                                            error={errors.password?.message}
+                                            secureTextEntry={!showPassword}
+                                            icon="lock-outline"
+                                        />
+                                    )}
+                                />
+                            </View>
                             <TouchableOpacity
                                 style={styles.eyeButton}
                                 onPress={() => setShowPassword((v) => !v)}
@@ -274,50 +274,38 @@ export default function RegisterScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {password && (
+                        {password ? (
                             <View style={styles.strengthContainer}>
                                 <View style={styles.strengthBar}>
-                                    <View
-                                        style={[
-                                            styles.strengthFill,
-                                            {
-                                                width: `${(strength / 4) * 100}%`,
-                                                backgroundColor: strengthColor,
-                                            },
-                                        ]}
-                                    />
+                                    <View style={[styles.strengthFill, { width: `${(strength / 4) * 100}%`, backgroundColor: strengthColor }]} />
                                 </View>
                                 <Text style={[styles.strengthText, { color: strengthColor }]}>
-                                    {{
-                                        0: "Rất yếu",
-                                        1: "Yếu",
-                                        2: "Trung bình",
-                                        3: "Mạnh",
-                                        4: "Rất mạnh",
-                                    }[strength] || "Rất yếu"}
+                                    {{ 0: "Rất yếu", 1: "Yếu", 2: "Trung bình", 3: "Mạnh", 4: "Rất mạnh" }[strength] || "Rất yếu"}
                                 </Text>
                             </View>
-                        )}
+                        ) : null}
 
                         <Button
-                            title={isSubmitting ? "Đang đăng ký..." : "Tiếp tục"}
+                            title={isSubmitting ? "Đang đăng ký..." : "Tiếp Tục"}
                             onPress={handleSubmit(onRegister)}
                             loading={isSubmitting}
                             disabled={isSubmitting}
                             size="large"
                             style={styles.button}
+                            gradient
                         />
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>
-                            Đã có tài khoản?{" "}
-                            <Text
-                                style={styles.footerLink}
-                                onPress={() => navigation.goBack()}
-                            >
-                                Đăng nhập
-                            </Text>
+                        <Text style={styles.footerText}>Đã có tài khoản? </Text>
+                        <TouchableOpacity onPress={() => navigation.navigate("Login")} activeOpacity={0.7}>
+                            <Text style={styles.footerLink}>Đăng nhập ngay</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.termsContainer}>
+                        <Text style={styles.termsText}>
+                            Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách riêng tư
                         </Text>
                     </View>
                 </ScrollView>
@@ -328,32 +316,112 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
     flex: { flex: 1 },
-    container: { flex: 1, backgroundColor: "#f0f7ff" },
-    scrollContent: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 16 },
-    backButton: { width: 40, height: 40, justifyContent: "center", alignItems: "flex-start", marginBottom: 8 },
-    header: { alignItems: "center", marginBottom: 28 },
-    iconContainer: {
-        width: 72,
-        height: 72,
-        borderRadius: 20,
+    container: { flex: 1, backgroundColor: "#f8fafc" },
+    scrollContent: { flexGrow: 1 },
+
+    // Hero Gradient
+    heroGradient: {
+        paddingHorizontal: 20,
+        paddingBottom: 28,
+    },
+    backButton: {
+        marginBottom: 16,
+        alignSelf: "flex-start",
+    },
+    backButtonInner: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: "rgba(255,255,255,0.2)",
         justifyContent: "center",
         alignItems: "center",
-        marginBottom: 16,
     },
-    title: { fontSize: 26, fontWeight: "800", color: colors.text.primary, marginBottom: 6 },
-    subtitle: { fontSize: 14, color: colors.text.secondary },
-    formCard: { backgroundColor: "#fff", borderRadius: 20, padding: 20, marginBottom: 24 },
-    passwordWrapper: { position: "relative" },
-    eyeButton: { position: "absolute", right: 12, top: 38, padding: 4 },
-    strengthContainer: { marginTop: 12, marginBottom: 16 },
-    strengthBar: { height: 4, backgroundColor: "#e5e7eb", borderRadius: 2, marginBottom: 6, overflow: "hidden" },
-    strengthFill: { height: "100%", borderRadius: 2 },
-    strengthText: { fontSize: 12, fontWeight: "600" },
-    button: { marginTop: 8 },
-    resendContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 4, marginTop: 16 },
-    resendText: { fontSize: 14, color: colors.text.secondary },
-    resendLink: { fontSize: 14, color: colors.primary[500], fontWeight: "600" },
-    footer: { alignItems: "center", marginTop: 20, marginBottom: 20 },
-    footerText: { fontSize: 14, color: colors.text.secondary },
-    footerLink: { color: colors.primary[500], fontWeight: "600" },
+    heroContent: {
+        alignItems: "center",
+        paddingBottom: 4,
+    },
+    iconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 20,
+        backgroundColor: "rgba(255,255,255,0.15)",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.25)",
+    },
+    title: {
+        fontSize: 26,
+        fontWeight: "800",
+        color: "#fff",
+        marginBottom: 4,
+    },
+    subtitle: {
+        fontSize: 13,
+        color: "rgba(255,255,255,0.85)",
+        fontWeight: "500",
+    },
+
+    // Form Card
+    formCard: {
+        backgroundColor: "#fff",
+        marginHorizontal: 16,
+        borderRadius: 20,
+        padding: 20,
+        marginTop: -20,
+        marginBottom: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
+    },
+    fieldGroup: { marginBottom: 11 },
+    passwordWrapper: { position: "relative", marginBottom: 8 },
+    eyeButton: { position: "absolute", right: 12, top: 36, padding: 4 },
+
+    // OTP Info
+    otpInfo: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 10,
+        backgroundColor: "#cffafe",
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: "#0369a1",
+    },
+    otpInfoText: {
+        flex: 1,
+        fontSize: 12,
+        color: "#0c4a6e",
+        fontWeight: "500",
+        lineHeight: 18,
+    },
+
+    // Password Strength
+    strengthContainer: { marginTop: 4, marginBottom: 12 },
+    strengthBar: { height: 4, backgroundColor: "#e2e8f0", borderRadius: 2, marginBottom: 5, overflow: "hidden" },
+    strengthFill: { height: "100%" as any, borderRadius: 2 },
+    strengthText: { fontSize: 11, fontWeight: "600" },
+
+    button: { marginTop: 6 },
+
+    resendContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 14 },
+    resendText: { fontSize: 12, color: "#64748b" },
+    resendLink: { fontSize: 12, color: "#0369a1", fontWeight: "600" },
+
+    footer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 10,
+    },
+    footerText: { fontSize: 12, color: "#64748b" },
+    footerLink: { fontSize: 12, color: "#0369a1", fontWeight: "600" },
+
+    termsContainer: { paddingHorizontal: 16, paddingBottom: 20, alignItems: "center" },
+    termsText: { fontSize: 10, color: "#94a3b8", lineHeight: 14, textAlign: "center" },
 });

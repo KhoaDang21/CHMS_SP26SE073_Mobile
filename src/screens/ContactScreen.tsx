@@ -20,7 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function ContactPage() {
+export default function ContactScreen() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
@@ -280,7 +280,7 @@ export default function ContactPage() {
                             </View>
                             <Text style={styles.faqAnswer}>
                                 Hoàn tiền sẽ được xử lý trong vòng 5-7 ngày làm việc sau khi hủy
-                                đặt phòng.
+                                đơn đặt phòng.
                             </Text>
                         </View>
                     </View>
@@ -351,34 +351,38 @@ const styles = StyleSheet.create({
     },
     contactValue: {
         fontSize: 14,
-        fontWeight: "600",
+        fontWeight: "700",
         color: "#1e293b",
     },
     hoursBox: {
         flexDirection: "row",
         gap: 12,
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        marginBottom: 12,
         borderRadius: 8,
         backgroundColor: "#f0f9ff",
-        borderLeftWidth: 4,
-        borderLeftColor: "#0891b2",
+        borderWidth: 1,
+        borderColor: "#bae6fd",
     },
     hoursContent: {
         flex: 1,
     },
     hoursTitle: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: "600",
-        color: "#1e293b",
-        marginBottom: 6,
+        color: "#0369a1",
+        marginBottom: 4,
     },
     hoursText: {
-        fontSize: 13,
-        color: "#475569",
+        fontSize: 12,
+        color: "#0c4a6e",
+        fontWeight: "500",
         marginBottom: 2,
     },
     faqItem: {
-        padding: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
         marginBottom: 12,
         borderRadius: 8,
         backgroundColor: "#fff",
@@ -387,21 +391,19 @@ const styles = StyleSheet.create({
     },
     faqHeader: {
         flexDirection: "row",
-        gap: 10,
-        alignItems: "flex-start",
-        marginBottom: 10,
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 8,
     },
     faqQuestion: {
-        flex: 1,
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: "600",
         color: "#1e293b",
-        lineHeight: 20,
+        flex: 1,
     },
     faqAnswer: {
-        fontSize: 13,
+        fontSize: 12,
         color: "#64748b",
         lineHeight: 18,
-        marginLeft: 30,
     },
 });

@@ -39,6 +39,7 @@ interface HomestayCardProps {
     onPress: () => void;
     onWishlistPress: () => void;
     isFavorite?: boolean;
+    compact?: boolean; // 2-column grid mode
 }
 
 export const HomestayCard: React.FC<HomestayCardProps> = ({
@@ -52,16 +53,19 @@ export const HomestayCard: React.FC<HomestayCardProps> = ({
     onPress,
     onWishlistPress,
     isFavorite = false,
+    compact = false,
 }) => {
+    const hasRating = rating !== undefined && rating > 0;
+    const starCount = hasRating ? Math.round(rating!) : 0;
     return (
-        <Card style={styles.homestayCard} onPress={onPress}>
-            <View style={styles.imageContainer}>
+        <Card style={[styles.homestayCard, compact && styles.homestayCardCompact]} onPress={onPress}>
+            <View style={[styles.imageContainer, compact && styles.imageContainerCompact]}>
                 <Image
                     source={{ uri: image || "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600" }}
                     style={styles.image}
                 />
                 <TouchableOpacity
-                    style={styles.wishlistButton}
+                    style={[styles.wishlistButton, compact && styles.wishlistButtonCompact]}
                     onPress={(e) => {
                         e.stopPropagation();
                         onWishlistPress();
@@ -70,34 +74,48 @@ export const HomestayCard: React.FC<HomestayCardProps> = ({
                 >
                     <MaterialCommunityIcons
                         name={isFavorite ? "heart" : "heart-outline"}
-                        size={22}
+                        size={compact ? 16 : 22}
                         color={isFavorite ? "#ef4444" : "#fff"}
                     />
                 </TouchableOpacity>
-                {rating !== undefined && (
-                    <View style={styles.ratingBadge}>
-                        <MaterialCommunityIcons name="star" size={13} color="#fbbf24" />
-                        <Text style={styles.ratingText}>
-                            {rating.toFixed(1)} ({reviewCount || 0})
+                {location ? (
+                    <View style={[styles.locationBadge, compact && styles.locationBadgeCompact]}>
+                        <MaterialCommunityIcons name="map-marker" size={10} color="#fff" />
+                        <Text style={[styles.locationBadgeText, compact && styles.locationBadgeTextCompact]} numberOfLines={1}>
+                            {location.split(",")[0].trim()}
                         </Text>
                     </View>
-                )}
-            </View>
-            <View style={styles.content}>
-                <Text style={styles.name} numberOfLines={2}>{name}</Text>
-                {location ? (
-                    <View style={styles.locationRow}>
-                        <MaterialCommunityIcons name="map-marker-outline" size={13} color="#64748b" />
-                        <Text style={styles.locationText} numberOfLines={1}>{location}</Text>
-                    </View>
                 ) : null}
+            </View>
+            <View style={[styles.content, compact && styles.contentCompact]}>
+                <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={2}>{name}</Text>
+                {hasRating ? (
+                    <View style={styles.ratingRow}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <MaterialCommunityIcons
+                                key={i}
+                                name={i < starCount ? "star" : "star-outline"}
+                                size={compact ? 11 : 14}
+                                color={i < starCount ? "#f59e0b" : "#d1d5db"}
+                            />
+                        ))}
+                        <Text style={[styles.ratingScore, compact && styles.ratingScoreCompact]}>{rating!.toFixed(1)}</Text>
+                        {!compact && reviewCount != null && reviewCount > 0 && (
+                            <Text style={styles.reviewCount}>· {reviewCount} đánh giá</Text>
+                        )}
+                    </View>
+                ) : (
+                    <Text style={[styles.noRating, compact && styles.noRatingCompact]}>Chưa có đánh giá</Text>
+                )}
+                {compact && reviewCount != null && reviewCount > 0 && (
+                    <Text style={styles.reviewCountCompact}>{reviewCount} đánh giá</Text>
+                )}
                 <View style={styles.footer}>
-                    <View>
-                        <Text style={styles.priceLabel}>Giá mỗi đêm</Text>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.price}>₫{price.toLocaleString("vi-VN")}</Text>
-                            <Text style={styles.currency}>/đêm</Text>
-                        </View>
+                    <View style={styles.priceRow}>
+                        <Text style={[styles.price, compact && styles.priceCompact]}>
+                            ₫{price.toLocaleString("vi-VN")}
+                        </Text>
+                        <Text style={[styles.currency, compact && styles.currencyCompact]}>/đêm</Text>
                     </View>
                 </View>
             </View>
@@ -105,15 +123,14 @@ export const HomestayCard: React.FC<HomestayCardProps> = ({
     );
 };
 
-export const LoadingSkeletonCard: React.FC = () => {
+export const LoadingSkeletonCard: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
     return (
-        <View style={styles.homestayCard}>
-            <View style={[styles.image, styles.skeleton, styles.skeletonImage]} />
-            <View style={styles.content}>
+        <View style={[styles.card, compact && styles.homestayCardCompact]}>
+            <View style={[compact ? styles.imageContainerCompact : styles.imageContainer, styles.skeleton]} />
+            <View style={[styles.content, compact && styles.contentCompact]}>
                 <View style={[styles.skeleton, styles.skeletonText, { width: "80%" }]} />
-                <View
-                    style={[styles.skeleton, styles.skeletonText, { width: "60%", marginTop: 8 }]}
-                />
+                <View style={[styles.skeleton, styles.skeletonText, { width: "60%", marginTop: 6 }]} />
+                <View style={[styles.skeleton, styles.skeletonText, { width: "40%", marginTop: 6 }]} />
             </View>
         </View>
     );
@@ -165,13 +182,19 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     homestayCard: {
-        marginBottom: 16,
+        marginBottom: 0,
+    },
+    homestayCardCompact: {
+        flex: 1,
     },
     imageContainer: {
         position: "relative",
         width: "100%",
-        height: 200,
+        height: 160,
         backgroundColor: "#f1f5f9",
+    },
+    imageContainerCompact: {
+        height: 120,
     },
     image: {
         width: "100%",
@@ -179,8 +202,8 @@ const styles = StyleSheet.create({
     },
     wishlistButton: {
         position: "absolute",
-        top: 12,
-        right: 12,
+        top: 8,
+        right: 8,
         width: 40,
         height: 40,
         borderRadius: 20,
@@ -188,66 +211,120 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    ratingBadge: {
-        position: "absolute",
-        bottom: 12,
-        left: 12,
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-    },
-    ratingText: {
-        color: "#fff",
-        fontSize: 12,
-        fontWeight: "600",
+    wishlistButtonCompact: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        top: 6,
+        right: 6,
     },
     content: {
         padding: 12,
     },
+    contentCompact: {
+        padding: 8,
+        minHeight: 90,
+        justifyContent: "space-between",
+    },
     name: {
-        fontSize: 15,
-        fontWeight: "600",
+        fontSize: 14,
+        fontWeight: "700",
         color: "#1e293b",
         marginBottom: 4,
+        lineHeight: 19,
     },
-    locationRow: {
+    nameCompact: {
+        fontSize: 12,
+        lineHeight: 16,
+        marginBottom: 3,
+    },
+    currency: {
+        fontSize: 11,
+        color: "#64748b",
+        marginLeft: 2,
+    },
+    currencyCompact: {
+        fontSize: 10,
+    },
+    // Location badge on image
+    locationBadge: {
+        position: "absolute",
+        top: 8,
+        left: 8,
         flexDirection: "row",
         alignItems: "center",
         gap: 3,
-        marginBottom: 8,
+        backgroundColor: "rgba(0,0,0,0.55)",
+        paddingHorizontal: 7,
+        paddingVertical: 3,
+        borderRadius: 6,
+        maxWidth: "70%",
     },
-    locationText: {
+    locationBadgeCompact: {
+        paddingHorizontal: 5,
+        paddingVertical: 2,
+        maxWidth: "80%",
+    },
+    locationBadgeText: {
+        color: "#fff",
+        fontSize: 11,
+        fontWeight: "600",
+    },
+    locationBadgeTextCompact: {
+        fontSize: 9,
+    },
+    // Rating row below name
+    ratingRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 2,
+        marginBottom: 6,
+        flexWrap: "wrap",
+    },
+    ratingScore: {
         fontSize: 12,
+        fontWeight: "700",
+        color: "#0891b2",
+        marginLeft: 2,
+    },
+    ratingScoreCompact: {
+        fontSize: 11,
+    },
+    reviewCount: {
+        fontSize: 11,
         color: "#64748b",
-        flex: 1,
+    },
+    reviewCountCompact: {
+        fontSize: 10,
+        color: "#94a3b8",
+        marginBottom: 4,
+    },
+    noRating: {
+        fontSize: 11,
+        color: "#94a3b8",
+        marginBottom: 6,
+    },
+    noRatingCompact: {
+        fontSize: 10,
+        marginBottom: 4,
     },
     footer: {
         flexDirection: "row",
         alignItems: "flex-end",
         justifyContent: "space-between",
-    },
-    priceLabel: {
-        fontSize: 10,
-        color: "#94a3b8",
-        marginBottom: 2,
+        marginTop: 2,
     },
     priceRow: {
         flexDirection: "row",
         alignItems: "baseline",
     },
     price: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: "700",
         color: "#0891b2",
     },
-    currency: {
+    priceCompact: {
         fontSize: 12,
-        color: "#64748b",
-        marginLeft: 2,
     },
     skeleton: {
         backgroundColor: "#e2e8f0",

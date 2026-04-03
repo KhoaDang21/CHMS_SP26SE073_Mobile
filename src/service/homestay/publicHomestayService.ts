@@ -15,7 +15,10 @@ const mapHomestay = (it: Record<string, unknown>): Homestay => ({
   bedrooms: Number(it.bedrooms ?? it.Bedrooms ?? 0),
   bathrooms: Number(it.bathrooms ?? it.Bathrooms ?? 0),
   images: (it.images ?? it.ImageUrls ?? it.imageUrls ?? []) as string[],
-  amenities: (it.amenities ?? it.AmenityNames ?? it.amenityNames ?? []) as string[],
+  amenities: (it.amenities ??
+    it.AmenityNames ??
+    it.amenityNames ??
+    []) as string[],
   ownerName: String(it.ownerName ?? it.OwnerName ?? ""),
   depositPercentage: Number(it.depositPercentage ?? it.DepositPercentage ?? 50),
   averageRating:
@@ -45,8 +48,11 @@ export interface HomestayFilters {
 const reviewSummaryCache = new Map<string, { avg: number; count: number }>();
 
 /** Align with FE HomestayCard.fetchReviewSummary */
-export async function fetchReviewSummary(homestayId: string): Promise<{ avg: number; count: number }> {
-  if (reviewSummaryCache.has(homestayId)) return reviewSummaryCache.get(homestayId)!;
+export async function fetchReviewSummary(
+  homestayId: string,
+): Promise<{ avg: number; count: number }> {
+  if (reviewSummaryCache.has(homestayId))
+    return reviewSummaryCache.get(homestayId)!;
   try {
     const res = await apiClient.get<unknown>(
       apiConfig.endpoints.publicHomestays.reviews(homestayId),
@@ -62,8 +68,10 @@ export async function fetchReviewSummary(homestayId: string): Promise<{ avg: num
       return empty;
     }
     const avg =
-      list.reduce((s: number, r: { rating?: number }) => s + (Number(r?.rating) || 0), 0) /
-      list.length;
+      list.reduce(
+        (s: number, r: { rating?: number }) => s + (Number(r?.rating) || 0),
+        0,
+      ) / list.length;
     const summary = { avg: Math.round(avg * 10) / 10, count: list.length };
     reviewSummaryCache.set(homestayId, summary);
     return summary;
@@ -89,17 +97,25 @@ export const publicHomestayService = {
     if (filters?.minPrice != null) params.minPrice = filters.minPrice;
     if (filters?.maxPrice != null) params.maxPrice = filters.maxPrice;
 
-    const res = await apiClient.get<unknown>(apiConfig.endpoints.homestays.list, params);
+    const res = await apiClient.get<unknown>(
+      apiConfig.endpoints.homestays.list,
+      params,
+    );
     const raw = extractPagedItems(res);
     return raw.map((it) => mapHomestay(it as Record<string, unknown>));
   },
 
   async getById(id: string): Promise<Homestay | null> {
-    const res = await apiClient.get<unknown>(apiConfig.endpoints.homestays.detail(id));
+    const res = await apiClient.get<unknown>(
+      apiConfig.endpoints.homestays.detail(id),
+    );
     const r = res as Record<string, unknown>;
     const payload = (r?.data ?? r) as Record<string, unknown> | undefined;
     if (!payload || typeof payload !== "object") return null;
-    const it = (payload.item ?? payload.Item ?? payload.data ?? payload) as Record<string, unknown>;
+    const it = (payload.item ??
+      payload.Item ??
+      payload.data ??
+      payload) as Record<string, unknown>;
     if (!it || (it.id == null && it.Id == null)) return null;
     return mapHomestay(it);
   },
