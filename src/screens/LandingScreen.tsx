@@ -1,8 +1,10 @@
 import { EmptyState, HomestayCard, LoadingSkeletonCard } from "@/components";
+import { tokenStorage } from "@/service/auth/tokenStorage";
+import { bookingService } from "@/service/booking/bookingService";
 import { fetchReviewSummary, publicHomestayService } from "@/service/homestay/publicHomestayService";
 import { districtService, type District } from "@/service/location/districtService";
 import { provinceService, type Province } from "@/service/location/provinceService";
-import type { Homestay } from "@/types";
+import type { Booking, Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -11,7 +13,6 @@ import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Dimensions,
   FlatList,
   Linking,
   Modal,
@@ -22,11 +23,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width } = Dimensions.get("window");
 
 export default function LandingScreen() {
   const navigation = useNavigation<any>();
@@ -51,6 +51,10 @@ export default function LandingScreen() {
 
   // Search
   const [searchText, setSearchText] = useState("");
+  const [myBookings, setMyBookings] = useState<Booking[]>([]);
+
+  const checkInStr = checkInDate ? checkInDate.toISOString().split("T")[0] : null;
+  const checkOutStr = checkOutDate ? checkOutDate.toISOString().split("T")[0] : null;
 
   const handleLoginPress = useCallback(() => navigation.navigate("Login"), [navigation]);
   const handleRegisterPress = useCallback(() => navigation.navigate("Register"), [navigation]);
@@ -89,6 +93,11 @@ export default function LandingScreen() {
     loadHomestays();
     provinceService.getAllProvinces().then(setProvinces);
     districtService.getAllDistricts().then(setAllDistricts);
+    tokenStorage.getToken().then((t) => {
+      if (t) {
+        bookingService.getMyBookings().then(setMyBookings).catch(() => { });
+      }
+    });
   }, [loadHomestays]);
 
   useEffect(() => {
@@ -111,6 +120,22 @@ export default function LandingScreen() {
         (h.districtName || "").toLowerCase() === district.name.toLowerCase();
       return matchProvince && matchDistrict;
     });
+
+    // Đồng bộ FE web: chỉ ẩn khi không có location filter
+    const hasLocationFilter = !!(selectedProvince || selectedDistrict);
+    if (checkInStr && checkOutStr && !hasLocationFilter) {
+      const selIn = new Date(checkInStr);
+      const selOut = new Date(checkOutStr);
+      result = result.filter(
+        (h) =>
+          !myBookings.some((b) => {
+            if (b.status === "CANCELLED" || b.status === "REJECTED") return false;
+            if (b.homestayId !== h.id) return false;
+            return selIn < new Date(b.checkOut) && selOut > new Date(b.checkIn);
+          }),
+      );
+    }
+
     if (searchText.trim()) {
       const q = searchText.toLowerCase();
       result = result.filter(
@@ -121,7 +146,7 @@ export default function LandingScreen() {
       );
     }
     return result;
-  }, [homestays, selectedProvince, selectedDistrict, allDistricts, searchText]);
+  }, [homestays, selectedProvince, selectedDistrict, allDistricts, checkInStr, checkOutStr, myBookings, searchText]);
 
   const hasFilter = !!(selectedProvince || selectedDistrict || searchText || checkInDate);
 
@@ -237,7 +262,7 @@ export default function LandingScreen() {
 
               {/* Date pickers */}
               <View style={styles.dateRow}>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCheckInPicker(true)}>
+                <TouchableOpacity style={[styles.dateBtn, checkInDate && styles.dateBtnActive]} onPress={() => setShowCheckInPicker(true)}>
                   <MaterialCommunityIcons name="calendar-arrow-right" size={16} color={checkInDate ? "#0891b2" : "#64748b"} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.dateBtnLabel}>Nhận phòng</Text>
@@ -245,11 +270,16 @@ export default function LandingScreen() {
                       {checkInDate ? formatDate(checkInDate) : "Chọn ngày"}
                     </Text>
                   </View>
+                  {checkInDate && (
+                    <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); setCheckInDate(null); setCheckOutDate(null); }}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
                 <View style={styles.dateSep}>
                   <MaterialCommunityIcons name="arrow-right" size={14} color="#94a3b8" />
                 </View>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCheckOutPicker(true)}>
+                <TouchableOpacity style={[styles.dateBtn, checkOutDate && styles.dateBtnActive]} onPress={() => setShowCheckOutPicker(true)}>
                   <MaterialCommunityIcons name="calendar-arrow-left" size={16} color={checkOutDate ? "#0891b2" : "#64748b"} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.dateBtnLabel}>Trả phòng</Text>
@@ -257,6 +287,11 @@ export default function LandingScreen() {
                       {checkOutDate ? formatDate(checkOutDate) : "Chọn ngày"}
                     </Text>
                   </View>
+                  {checkOutDate && (
+                    <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); setCheckOutDate(null); }}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -270,7 +305,16 @@ export default function LandingScreen() {
 
             {/* Results Header - show count */}
             <View style={styles.resultHeader}>
-              <Text style={styles.resultTitle}>Khám Phá Homestay</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.resultTitle}>
+                  {hasFilter ? "Kết Quả Tìm Kiếm" : "Khám Phá Homestay"}
+                </Text>
+                {checkInDate && checkOutDate && (
+                  <Text style={styles.resultDateRange}>
+                    {formatDate(checkInDate)} – {formatDate(checkOutDate)}
+                  </Text>
+                )}
+              </View>
               <View style={styles.resultCountBadge}>
                 <Text style={styles.resultCount}>{filteredHomestays.length} kết quả</Text>
               </View>
@@ -505,6 +549,7 @@ const styles = StyleSheet.create({
   dateBtnLabel: { fontSize: 10, color: "#94a3b8", fontWeight: "500" },
   dateBtnValue: { fontSize: 12, color: "#64748b", fontWeight: "600" },
   dateBtnValueActive: { color: "#0891b2" },
+  dateBtnActive: { borderColor: "#0891b2", backgroundColor: "#ecf9ff" },
   dateSep: { alignItems: "center" },
   clearBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
@@ -520,6 +565,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#f1f5f9",
   },
   resultTitle: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
+  resultDateRange: { fontSize: 11, color: "#0891b2", fontWeight: "500", marginTop: 2 },
   resultCountBadge: { backgroundColor: "#f1f5f9", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   resultCount: { fontSize: 12, fontWeight: "600", color: "#64748b" },
 

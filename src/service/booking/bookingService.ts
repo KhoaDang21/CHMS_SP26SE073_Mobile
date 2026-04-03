@@ -20,19 +20,28 @@ const mapBooking = (item: Record<string, unknown>): Booking => ({
   checkOut: String(item.checkOut ?? item.CheckOut ?? ""),
   guestsCount: Number(item.guestsCount ?? item.GuestsCount ?? 0),
   totalPrice: (item.totalPrice ?? item.TotalPrice) as number | undefined,
-  depositAmount: (item.depositAmount ?? item.DepositAmount) as number | undefined,
-  remainingAmount: (item.remainingAmount ?? item.RemainingAmount) as number | undefined,
-  paymentStatus: (item.paymentStatus ?? item.PaymentStatus) as Booking["paymentStatus"],
+  depositAmount: (item.depositAmount ?? item.DepositAmount) as
+    | number
+    | undefined,
+  remainingAmount: (item.remainingAmount ?? item.RemainingAmount) as
+    | number
+    | undefined,
+  paymentStatus: (item.paymentStatus ??
+    item.PaymentStatus) as Booking["paymentStatus"],
   status: normalizeStatus(item.status ?? item.Status),
   contactPhone: (item.contactPhone ?? item.ContactPhone) as string | undefined,
-  specialRequests: (item.specialRequests ?? item.SpecialRequests) as string | undefined,
+  specialRequests: (item.specialRequests ?? item.SpecialRequests) as
+    | string
+    | undefined,
   createdAt: (item.createdAt ?? item.CreatedAt) as string | undefined,
 });
 
 export const bookingService = {
   async getMyBookings(): Promise<Booking[]> {
     try {
-      const res = await apiClient.get<unknown>(apiConfig.endpoints.bookings.list);
+      const res = await apiClient.get<unknown>(
+        apiConfig.endpoints.bookings.list,
+      );
       // Đồng bộ với FE web: check response.data là array, hoặc response là array
       // Cũng handle paged response { data: { items: [...] } }
       const r = res as any;
@@ -54,7 +63,9 @@ export const bookingService = {
 
   async getBookingDetail(id: string): Promise<Booking | null> {
     try {
-      const res = await apiClient.get<unknown>(apiConfig.endpoints.bookings.detail(id));
+      const res = await apiClient.get<unknown>(
+        apiConfig.endpoints.bookings.detail(id),
+      );
       const r = res as Record<string, unknown>;
       const raw = (r?.data ?? r) as Record<string, unknown>;
       if (!raw?.id && !raw?.Id) return null;
@@ -83,7 +94,9 @@ export const bookingService = {
       success,
       message,
       data:
-        bookingData && typeof bookingData === "object" && !Array.isArray(bookingData)
+        bookingData &&
+        typeof bookingData === "object" &&
+        !Array.isArray(bookingData)
           ? mapBooking(bookingData as Record<string, unknown>)
           : undefined,
     };
