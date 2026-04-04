@@ -306,7 +306,7 @@ export default function HomeScreen() {
                     ? `${item!.districtName}, ${item!.provinceName}`
                     : item!.address
                 }
-                onPress={() => navigation.navigate("HomestayDetail", { id: item!.id })}
+                onPress={() => navigation.navigate("HomestayDetail", { id: item!.id, homestay: item })}
                 onWishlistPress={() => handleWishlistToggle(item!.id)}
                 isFavorite={wishlistIds.has(item!.id)}
                 compact

@@ -117,7 +117,7 @@ export default function BookingsScreen() {
     const hasReview = reviewedBookings.has(item.id);
 
     return (
-      <Card style={styles.bookingCard}>
+      <Card style={styles.bookingCard} onPress={() => navigation.navigate("BookingDetail", { bookingId: item.id })}>
         {/* Colored header bar */}
         <View style={[styles.cardHeaderBar, { backgroundColor: meta.color }]}>
           <View style={styles.cardHeaderLeft}>

@@ -1,5 +1,6 @@
 import {
   AboutScreen,
+  BookingDetailScreen,
   BookingEditScreen,
   BookingsScreen,
   ChatScreen,
@@ -35,6 +36,7 @@ export type RootStackParamList = {
   AuthStack: undefined;
   MainTabs: undefined;
   HomestayDetail: { id: string };
+  BookingDetail: { bookingId: string };
   BookingEdit: { bookingId: string };
   PaymentInitiation: { bookingId: string };
   Reviews: undefined;
@@ -232,6 +234,10 @@ export default function RootNavigator() {
               <Stack.Screen
                 name="HomestayDetail"
                 component={HomestayDetailScreen}
+              />
+              <Stack.Screen
+                name="BookingDetail"
+                component={BookingDetailScreen}
               />
               <Stack.Screen
                 name="BookingEdit"
