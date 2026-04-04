@@ -75,7 +75,6 @@ export default function HomestayDetailScreen() {
         setItem(data);
       } catch (error) {
         showToast("Không thể tải chi tiết căn nhà", "error");
-        logger.error("Failed to load homestay details", error);
       } finally {
         setLoading(false);
       }
@@ -107,7 +106,6 @@ export default function HomestayDetailScreen() {
         }));
         setReviews(mapped);
       } catch (error) {
-        logger.error("Failed to load reviews", error);
         if (mounted) setReviews([]);
       } finally {
         if (mounted) setReviewsLoading(false);

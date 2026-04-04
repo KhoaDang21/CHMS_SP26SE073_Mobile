@@ -1,7 +1,6 @@
 import { Button, Input } from "@/components";
 import { authService } from "@/service/auth/authService";
 import { colors } from "@/utils/colors";
-import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { RegisterFormData, RegisterSchema } from "@/utils/validators";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -27,6 +26,8 @@ export default function RegisterScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [step, setStep] = useState<"form" | "otp">("form");
     const [email, setEmail] = useState("");
+    const [resending, setResending] = useState(false);
+    const [registeredData, setRegisteredData] = useState<RegisterFormData | null>(null);
 
     const {
         control,
@@ -50,20 +51,55 @@ export default function RegisterScreen() {
 
     const onRegister = useCallback(async (data: RegisterFormData) => {
         try {
-            await authService.register({
+            const response = await authService.register({
                 fullName: data.fullName.trim(),
                 email: data.email.trim(),
                 phone: data.phone.trim(),
                 password: data.password,
             });
+
             setEmail(data.email.trim());
+            setRegisteredData(data);
             setStep("otp");
             showToast("Đã đăng ký — kiểm tra email để lấy mã OTP", "success");
         } catch (e: any) {
-            logger.error("Register failed", e);
-            showToast(e?.message || "Không thể đăng ký", "error");
+            const msg = e?.message || "";
+            if (msg.includes("Email đã tồn tại") || msg.toLowerCase().includes("email")) {
+                showToast("Email này đã được đăng ký. Vui lòng dùng email khác.", "error");
+            } else if (msg.includes("Số điện thoại") || msg.toLowerCase().includes("phone")) {
+                showToast(msg || "Số điện thoại không hợp lệ.", "error");
+            } else if (msg.includes("HTTP 500") || !msg) {
+                showToast("Đăng ký thất bại. Email hoặc số điện thoại có thể đã tồn tại.", "error");
+            } else {
+                showToast(msg, "error");
+            }
         }
     }, []);
+
+    const handleResendOtp = useCallback(async () => {
+        if (!registeredData || resending) return;
+        try {
+            setResending(true);
+            await authService.register({
+                fullName: registeredData.fullName.trim(),
+                email: registeredData.email.trim(),
+                phone: registeredData.phone.trim(),
+                password: registeredData.password,
+            });
+            showToast("Đã gửi lại mã OTP — kiểm tra hộp thư (kể cả Spam)", "success");
+        } catch (e: any) {
+            // Email đã tồn tại trong cache nghĩa là OTP cũ vẫn còn hiệu lực
+            // hoặc đã hết hạn — thông báo user thử lại sau
+            const msg = e?.message || "";
+            if (msg.includes("đã tồn tại") || msg.includes("HTTP 500")) {
+                showToast("Không thể gửi lại. Vui lòng đợi 5 phút rồi thử lại từ đầu.", "warning");
+            } else {
+                showToast(msg || "Không thể gửi lại OTP", "error");
+            }
+        } finally {
+            setResending(false);
+        }
+    }, [registeredData, resending]);
 
     const onVerifyOtp = useCallback(async (data: { otp: string }) => {
         try {
@@ -71,7 +107,6 @@ export default function RegisterScreen() {
             showToast("Xác minh email thành công! Vui lòng đăng nhập", "success");
             navigation.navigate("Login");
         } catch (e: any) {
-            logger.error("OTP verification failed", e);
             showToast(e?.message || "Mã OTP không đúng", "error");
         }
     }, [email, navigation]);
@@ -79,10 +114,10 @@ export default function RegisterScreen() {
     const getPasswordStrength = (pass: string) => {
         if (!pass) return 0;
         let strength = 0;
-        if (pass.length >= 8) strength += 1;
+        if (pass.length >= 6) strength += 1;
+        if (pass.length >= 10) strength += 1;
         if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) strength += 1;
         if (/\d/.test(pass)) strength += 1;
-        if (/[!@#$%^&*]/.test(pass)) strength += 1;
         return strength;
     };
 
@@ -117,11 +152,16 @@ export default function RegisterScreen() {
                         </LinearGradient>
 
                         <View style={styles.formCard}>
-                            <View style={styles.otpInfo}>
-                                <MaterialCommunityIcons name="shield-check-outline" size={18} color="#0369a1" />
-                                <Text style={styles.otpInfoText}>
-                                    Chúng tôi đã gửi mã xác minh 6 chữ số đến email của bạn
-                                </Text>
+                            {/* Email target */}
+                            <View style={styles.emailTarget}>
+                                <MaterialCommunityIcons name="email-fast-outline" size={20} color="#0369a1" />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.emailTargetLabel}>Mã đã gửi đến</Text>
+                                    <Text style={styles.emailTargetValue} numberOfLines={1}>{email}</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setStep("form")} activeOpacity={0.7}>
+                                    <Text style={styles.changeEmailText}>Đổi</Text>
+                                </TouchableOpacity>
                             </View>
 
                             <View style={styles.fieldGroup}>
@@ -130,7 +170,7 @@ export default function RegisterScreen() {
                                     name="otp"
                                     render={({ field: { value, onChange } }) => (
                                         <Input
-                                            label="Mã OTP"
+                                            label="Mã OTP (6 chữ số)"
                                             placeholder="000000"
                                             value={value}
                                             onChangeText={(text) => onChange(text.replace(/[^0-9]/g, "").slice(0, 6))}
@@ -153,8 +193,14 @@ export default function RegisterScreen() {
 
                             <View style={styles.resendContainer}>
                                 <Text style={styles.resendText}>Không nhận được mã? </Text>
-                                <TouchableOpacity onPress={() => setStep("form")} activeOpacity={0.7}>
-                                    <Text style={styles.resendLink}>Gửi lại</Text>
+                                <TouchableOpacity
+                                    onPress={handleResendOtp}
+                                    disabled={resending}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={[styles.resendLink, resending && { opacity: 0.5 }]}>
+                                        {resending ? "Đang gửi..." : "Gửi lại"}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -251,7 +297,7 @@ export default function RegisterScreen() {
                                     render={({ field: { value, onChange } }) => (
                                         <Input
                                             label="Mật Khẩu"
-                                            placeholder="Tối thiểu 8 ký tự"
+                                            placeholder="Tối thiểu 6 ký tự"
                                             value={value}
                                             onChangeText={onChange}
                                             error={errors.password?.message}
@@ -424,4 +470,34 @@ const styles = StyleSheet.create({
 
     termsContainer: { paddingHorizontal: 16, paddingBottom: 20, alignItems: "center" },
     termsText: { fontSize: 10, color: "#94a3b8", lineHeight: 14, textAlign: "center" },
+
+    // OTP email target
+    emailTarget: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        backgroundColor: "#e0f2fe",
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#bae6fd",
+    },
+    emailTargetLabel: { fontSize: 11, color: "#0369a1", fontWeight: "600", marginBottom: 2 },
+    emailTargetValue: { fontSize: 13, color: "#0c4a6e", fontWeight: "700" },
+    changeEmailText: { fontSize: 12, color: "#0369a1", fontWeight: "700" },
+
+    // Spam hint
+    spamHint: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 8,
+        backgroundColor: "#fffbeb",
+        borderRadius: 10,
+        padding: 10,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: "#fde68a",
+    },
+    spamHintText: { flex: 1, fontSize: 12, color: "#92400e", lineHeight: 18 },
 });

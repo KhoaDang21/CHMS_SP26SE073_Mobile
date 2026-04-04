@@ -69,7 +69,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess?: () =>
           showToast(`Chào mừng ${user.name || "bạn"}!`, "success");
           if (onLoginSuccess) onLoginSuccess();
         } catch (error: any) {
-          logger.error("Google login failed", error);
+
           showToast(error?.message || "Đăng nhập Google thất bại. Vui lòng thử lại.", "error");
         } finally {
           setGoogleLoading(false);
@@ -94,7 +94,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess?: () =>
         showToast("Đăng nhập thành công!", "success");
         if (onLoginSuccess) onLoginSuccess();
       } catch (e: any) {
-        logger.error("Login failed", e);
+
         showToast(e?.message || "Email hoặc mật khẩu không đúng", "error");
       }
     },
@@ -106,7 +106,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess?: () =>
       setGoogleLoading(true);
       await promptAsync();
     } catch (error) {
-      logger.error("Google login prompt failed", error);
+
       showToast("Đăng nhập Google không khả dụng. Vui lòng thử lại sau.", "error");
       setGoogleLoading(false);
     }

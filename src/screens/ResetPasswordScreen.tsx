@@ -64,7 +64,7 @@ export default function ResetPasswordScreen() {
             showToast("Đặt lại mật khẩu thành công", "success");
             navigation.navigate("Login");
         } catch (e: any) {
-            logger.error("Reset password failed", e);
+
             showToast(e?.message || "Không thể đặt lại mật khẩu", "error");
         } finally {
             setLoading(false);

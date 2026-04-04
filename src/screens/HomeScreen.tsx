@@ -84,7 +84,6 @@ export default function HomeScreen() {
       setAllHomestays(sorted);
     } catch (error) {
       showToast("Lỗi tải dữ liệu", "error");
-      logger.error("Failed to load homestays", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -119,11 +118,11 @@ export default function HomeScreen() {
     useCallback(() => {
       tokenStorage.getToken().then((t) => {
         if (t) {
-          bookingService.getMyBookings().then(setMyBookings).catch(() => {});
+          bookingService.getMyBookings().then(setMyBookings).catch(() => { });
           wishlistService
             .getMyWishlist()
             .then((list) => setWishlistIds(new Set(list.map((h) => h.id))))
-            .catch(() => {});
+            .catch(() => { });
         }
       });
     }, []),

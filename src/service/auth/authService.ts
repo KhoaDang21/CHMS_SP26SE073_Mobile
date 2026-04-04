@@ -15,7 +15,8 @@ export const authService = {
       res?.accessToken ||
       res?.token;
     const refreshToken = res?.data?.refreshToken || res?.refreshToken || null;
-    const sourceUser = res?.data?.user || res?.data?.User || res?.user || res?.data;
+    const sourceUser =
+      res?.data?.user || res?.data?.User || res?.user || res?.data;
     const user: User = {
       id: sourceUser?.id || sourceUser?.email || "",
       email: sourceUser?.email || "",
@@ -35,12 +36,16 @@ export const authService = {
     phone: string;
     password: string;
   }) {
-    await apiClient.post<any>(apiConfig.endpoints.auth.register, {
-      email: data.email,
-      password: data.password,
-      fullName: data.fullName,
-      phoneNumber: data.phone,
-    });
+    const response = await apiClient.post<any>(
+      apiConfig.endpoints.auth.register,
+      {
+        email: data.email,
+        password: data.password,
+        fullName: data.fullName,
+        phoneNumber: data.phone,
+      },
+    );
+    return response;
   },
 
   /** POST /api/Auth/forgot-password — FE: { email } */
@@ -77,9 +82,13 @@ export const authService = {
       },
     );
     const token =
-      res?.data?.accessToken || res?.data?.token || res?.accessToken || res?.token;
+      res?.data?.accessToken ||
+      res?.data?.token ||
+      res?.accessToken ||
+      res?.token;
     const refreshToken = res?.data?.refreshToken || res?.refreshToken || null;
-    const sourceUser = res?.data?.user || res?.data?.User || res?.user || res?.data;
+    const sourceUser =
+      res?.data?.user || res?.data?.User || res?.user || res?.data;
     const user: User = {
       id: sourceUser?.id || sourceUser?.email || "",
       email: sourceUser?.email || "",

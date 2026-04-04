@@ -4,6 +4,7 @@ import {
   BookingsScreen,
   ChatScreen,
   ContactScreen,
+  CreateReviewScreen,
   ForgotPasswordScreen,
   HomeScreen,
   HomestayDetailScreen,
@@ -43,6 +44,7 @@ export type RootStackParamList = {
   Chat: undefined;
   Contact: undefined;
   PaymentResult: { paymentId?: string; bookingId: string };
+  CreateReview: { bookingId: string; homestayName?: string };
 };
 
 export type AuthStackParamList = {
@@ -252,11 +254,9 @@ export default function RootNavigator() {
             >
               <Stack.Screen name="Reviews" component={ReviewsScreen} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
-              <Stack.Screen
-                name="NotificationPreferences"
-                component={NotificationPreferencesScreen}
-              />
+              <Stack.Screen name="NotificationPreferences" component={NotificationPreferencesScreen} />
               <Stack.Screen name="Support" component={SupportScreen} />
+              <Stack.Screen name="CreateReview" component={CreateReviewScreen} />
             </Stack.Group>
           </Stack.Group>
         )}

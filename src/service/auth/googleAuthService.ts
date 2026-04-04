@@ -1,4 +1,3 @@
-import { logger } from "@/utils/logger";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 
@@ -40,7 +39,6 @@ export const googleAuthService = {
       }
       return null;
     } catch (error) {
-      logger.error("Google auth response handling failed", error);
       return null;
     }
   },
@@ -52,7 +50,7 @@ export const googleAuthService = {
     try {
       await AsyncStorage.removeItem("google_id_token_temp");
     } catch (error) {
-      logger.error("Failed to clear Google tokens", error);
+      // Silent error handling
     }
   },
 };

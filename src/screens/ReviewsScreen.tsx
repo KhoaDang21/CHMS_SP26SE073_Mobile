@@ -35,7 +35,7 @@ export default function ReviewsScreen() {
             setItems(data || []);
         } catch (error) {
             showToast("Không thể tải danh sách review", "error");
-            logger.error("Failed to load reviews", error);
+
         } finally {
             setLoading(false);
             setRefreshing(false);

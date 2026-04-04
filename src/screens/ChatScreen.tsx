@@ -52,7 +52,7 @@ export default function ChatScreen() {
                     setMessages(formattedMessages);
                 }
             } catch (error) {
-                logger.error("Failed to load chat history", error);
+
             } finally {
                 setLoading(false);
             }
@@ -96,7 +96,7 @@ export default function ChatScreen() {
             setMessages((prev) => [...prev, aiMessage]);
         } catch (error: any) {
             showToast("Lỗi khi gửi tin nhắn", "error");
-            logger.error("Failed to send message", error);
+
         } finally {
             setSending(false);
             setAiLoading(false);
@@ -120,11 +120,11 @@ export default function ChatScreen() {
             const recText =
                 recommendations?.length > 0
                     ? recommendations
-                          .map(
-                              (r) =>
-                                  `• ${r.homestayName} — ₫${r.price.toLocaleString("vi-VN")}/đêm (★${r.rating})\n  ${r.reason}`,
-                          )
-                          .join("\n\n")
+                        .map(
+                            (r) =>
+                                `• ${r.homestayName} — ₫${r.price.toLocaleString("vi-VN")}/đêm (★${r.rating})\n  ${r.reason}`,
+                        )
+                        .join("\n\n")
                     : "Hiện chưa có gợi ý phù hợp. Hãy thử mô tả sở thích của bạn trong ô chat.";
             const aiMessage: Message = {
                 id: `msg-${Date.now()}-rec`,

@@ -1,13 +1,18 @@
 import { apiConfig } from "@/service/constants/apiConfig";
 import { tokenStorage } from "@/service/auth/tokenStorage";
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
   const token = await tokenStorage.getToken();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), apiConfig.timeout);
 
   try {
-    const response = await fetch(`${apiConfig.baseURL}${endpoint}`, {
+    const url = `${apiConfig.baseURL}${endpoint}`;
+
+    const response = await fetch(url, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -18,16 +23,40 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     });
 
     const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-      throw new Error(data?.message || `HTTP ${response.status}`);
+      // Extract error message from various BE response shapes:
+      // { message }, { Message }, { errors: { field: [...] } }, { title } (ASP.NET validation)
+      let errorMessage: string = data?.message || data?.Message || "";
+
+      if (!errorMessage && data?.errors) {
+        // ASP.NET ModelState: { errors: { FieldName: ["msg1"] } }
+        const firstField = Object.values(
+          data.errors as Record<string, string[]>,
+        )[0];
+        if (Array.isArray(firstField) && firstField.length > 0) {
+          errorMessage = firstField[0];
+        }
+      }
+
+      if (!errorMessage && data?.title) {
+        errorMessage = data.title;
+      }
+
+      const finalError = errorMessage || `HTTP ${response.status}`;
+      throw new Error(finalError);
     }
     return data as T;
+  } catch (error) {
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-function buildQuery(params?: Record<string, string | number | boolean | undefined | null>) {
+function buildQuery(
+  params?: Record<string, string | number | boolean | undefined | null>,
+) {
   if (!params) return "";
   const entries = Object.entries(params).filter(
     ([, v]) => v !== undefined && v !== null && v !== "",
@@ -39,7 +68,10 @@ function buildQuery(params?: Record<string, string | number | boolean | undefine
 }
 
 export const apiClient = {
-  get<T>(endpoint: string, params?: Record<string, string | number | boolean | undefined | null>) {
+  get<T>(
+    endpoint: string,
+    params?: Record<string, string | number | boolean | undefined | null>,
+  ) {
     return request<T>(`${endpoint}${buildQuery(params)}`, { method: "GET" });
   },
   post<T>(endpoint: string, payload?: unknown) {

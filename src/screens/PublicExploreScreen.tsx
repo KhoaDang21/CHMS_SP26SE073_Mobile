@@ -74,7 +74,7 @@ export default function PublicExploreScreen() {
       setAllHomestays(sorted);
       setHomestays(sorted);
     } catch (e) {
-      logger.error("Public explore load homestays", e);
+
       showToast("Không thể tải danh sách homestay", "error");
     } finally {
       setLoading(false);

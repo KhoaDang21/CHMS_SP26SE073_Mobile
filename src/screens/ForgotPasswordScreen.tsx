@@ -32,7 +32,7 @@ export default function ForgotPasswordScreen() {
             // Navigate to reset password screen
             navigation.navigate("ResetPassword", { email: email.trim() });
         } catch (e: any) {
-            logger.error("Send OTP failed", e);
+
             showToast(e?.message || "Không thể gửi OTP", "error");
         } finally {
             setLoading(false);

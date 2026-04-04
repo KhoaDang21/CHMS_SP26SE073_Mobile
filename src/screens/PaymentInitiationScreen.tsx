@@ -51,7 +51,7 @@ export default function PaymentInitiationScreen() {
                 }
             } catch (error) {
                 showToast("Không thể tải chi tiết đặt phòng", "error");
-                logger.error("Failed to load booking", error);
+
             } finally {
                 setLoading(false);
             }
@@ -105,7 +105,7 @@ export default function PaymentInitiationScreen() {
             }
         } catch (error: any) {
             showToast(error?.message || "Lỗi khi khởi tạo thanh toán", "error");
-            logger.error("Payment initiation failed", error);
+
         } finally {
             setProcessing(false);
         }

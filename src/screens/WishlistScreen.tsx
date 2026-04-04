@@ -35,7 +35,6 @@ export default function WishlistScreen() {
       setItems(data || []);
     } catch (error) {
       showToast("Không thể tải danh sách yêu thích", "error");
-      logger.error("Failed to load wishlist", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -59,7 +58,7 @@ export default function WishlistScreen() {
         showToast("Đã xóa khỏi danh sách yêu thích", "info");
       } catch (error) {
         showToast("Không thể xóa khỏi danh sách", "error");
-        logger.error("Failed to remove from wishlist", error);
+
       }
     },
     []

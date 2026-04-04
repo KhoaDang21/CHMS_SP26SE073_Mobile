@@ -34,7 +34,7 @@ export default function NotificationPreferencesScreen() {
                 setPreferences(data);
             } catch (error) {
                 showToast("Không thể tải cài đặt thông báo", "error");
-                logger.error("Failed to load preferences", error);
+
             } finally {
                 setLoading(false);
             }
@@ -57,7 +57,7 @@ export default function NotificationPreferencesScreen() {
             showToast("Cập nhật cài đặt thành công", "success");
         } catch (error) {
             showToast("Không thể cập nhật cài đặt", "error");
-            logger.error("Failed to update preferences", error);
+
         } finally {
             setSaving(false);
         }
