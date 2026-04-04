@@ -44,6 +44,7 @@ export interface Booking {
   totalPrice?: number;
   depositAmount?: number;
   remainingAmount?: number;
+  depositPercentage?: number;
   paymentStatus?: "UNPAID" | "DEPOSIT_PAID" | "FULLY_PAID";
   status: BookingStatus;
   contactPhone?: string;

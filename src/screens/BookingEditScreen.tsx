@@ -60,7 +60,6 @@ export default function BookingEditScreen() {
                 if (policyData) setPolicy(policyData);
             } catch (error) {
                 showToast("Không thể tải chi tiết đặt phòng", "error");
-                logger.error("Failed to load booking", error);
             } finally {
                 setLoading(false);
             }

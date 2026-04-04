@@ -1,35 +1,44 @@
-import {
-  AlertDialog,
-  Button,
-  Card,
-  Divider,
-  EmptyState,
-  Header,
-  LoadingIndicator,
-  StatusBadge,
-} from "@/components";
+import { AlertDialog, Button, Card, Divider, EmptyState, Header, LoadingIndicator, StatusBadge } from "@/components";
 import { bookingService } from "@/service/booking/bookingService";
+import { reviewService } from "@/service/review/reviewService";
 import type { Booking } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { ComponentProps } from "react";
-import { useCallback, useEffect, useState } from "react";
-import {
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useCallback, useState } from "react";
+import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+type FilterTab = "ALL" | "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+
+const FILTER_TABS: { key: FilterTab; label: string }[] = [
+  { key: "ALL", label: "Tất cả" },
+  { key: "PENDING", label: "Chờ xác nhận" },
+  { key: "CONFIRMED", label: "Đã xác nhận" },
+  { key: "COMPLETED", label: "Hoàn thành" },
+  { key: "CANCELLED", label: "Đã hủy" },
+];
+
+const STATUS_META: Record<string, { color: string; icon: ComponentProps<typeof MaterialCommunityIcons>["name"] }> = {
+  PENDING: { color: "#f59e0b", icon: "clock-outline" },
+  CONFIRMED: { color: "#10b981", icon: "check-circle-outline" },
+  COMPLETED: { color: "#0891b2", icon: "check-all" },
+  CANCELLED: { color: "#ef4444", icon: "close-circle-outline" },
+  CHECKED_IN: { color: "#10b981", icon: "login" },
+  REJECTED: { color: "#ef4444", icon: "alert-circle-outline" },
+};
+
 export default function BookingsScreen() {
+  const navigation = useNavigation<any>();
   const [items, setItems] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterTab>("ALL");
   const [cancelDialogVisible, setCancelDialogVisible] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
 
   const loadBookings = useCallback(async () => {
     try {
@@ -37,25 +46,36 @@ export default function BookingsScreen() {
       setItems(data || []);
     } catch (error) {
       showToast("Không thể tải danh sách đặt phòng", "error");
-      logger.error("Failed to load bookings", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
+  const loadReviews = useCallback(async () => {
+    try {
+      const reviews = await reviewService.getMyReviews();
+      const ids = new Set(reviews.map((r) => r.bookingReference).filter(Boolean));
+      setReviewedBookings(ids);
+    } catch { /* silent */ }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      loadBookings();
+      loadReviews();
+    }, [loadBookings, loadReviews]),
+  );
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     loadBookings();
-  }, [loadBookings]);
+    loadReviews();
+  }, [loadBookings, loadReviews]);
 
   const handleCancelBooking = useCallback(async () => {
     if (!selectedBookingId) return;
-
     try {
       const res = await bookingService.cancelBooking(selectedBookingId);
       if (res.success) {
@@ -72,38 +92,15 @@ export default function BookingsScreen() {
     }
   }, [selectedBookingId, loadBookings]);
 
-  type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
-
-  const getStatusIcon = (status: string): IconName => {
-    const statusMap: Record<string, IconName> = {
-      PENDING: "clock-outline",
-      CONFIRMED: "check-circle-outline",
-      COMPLETED: "check-all",
-      CANCELLED: "close-circle-outline",
-      CHECKED_IN: "login",
-      REJECTED: "alert-circle-outline",
-    };
-    return statusMap[status] ?? "help-circle-outline";
+  const formatDate = (d: string) => {
+    try { return new Date(d).toLocaleDateString("vi-VN"); } catch { return d; }
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("vi-VN");
-    } catch {
-      return dateString;
-    }
+  const getNights = (checkIn: string, checkOut: string) => {
+    try { return Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000); } catch { return 0; }
   };
 
-  const getDaysDifference = (checkIn: string, checkOut: string) => {
-    try {
-      const start = new Date(checkIn).getTime();
-      const end = new Date(checkOut).getTime();
-      return Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    } catch {
-      return 0;
-    }
-  };
+  const filteredItems = activeFilter === "ALL" ? items : items.filter((i) => i.status === activeFilter);
 
   if (loading) {
     return (
@@ -114,304 +111,203 @@ export default function BookingsScreen() {
     );
   }
 
+  const renderCard = ({ item }: { item: Booking }) => {
+    const nights = getNights(item.checkIn, item.checkOut);
+    const meta = STATUS_META[item.status] ?? STATUS_META.PENDING;
+    const hasReview = reviewedBookings.has(item.id);
+
+    return (
+      <Card style={styles.bookingCard} onPress={() => navigation.navigate("BookingDetail", { bookingId: item.id })}>
+        {/* Colored header bar */}
+        <View style={[styles.cardHeaderBar, { backgroundColor: meta.color }]}>
+          <View style={styles.cardHeaderLeft}>
+            <MaterialCommunityIcons name={meta.icon} size={16} color="#fff" />
+            <Text style={styles.cardHeaderTitle} numberOfLines={1}>{item.homestayName || "Căn nhà"}</Text>
+          </View>
+          <Text style={styles.cardHeaderId}>#{item.id.slice(0, 8)}</Text>
+        </View>
+
+        <View style={styles.cardBody}>
+          <View style={styles.statusRow}>
+            <StatusBadge status={item.status} />
+            {item.paymentStatus && <StatusBadge status={item.paymentStatus} />}
+          </View>
+
+          <Divider style={styles.divider} />
+
+          <View style={styles.datesRow}>
+            <View style={styles.dateItem}>
+              <Text style={styles.dateLabel}>Nhận phòng</Text>
+              <Text style={styles.dateValue}>{formatDate(item.checkIn)}</Text>
+            </View>
+            <MaterialCommunityIcons name="arrow-right" size={16} color="#cbd5e1" />
+            <View style={[styles.dateItem, { alignItems: "flex-end" }]}>
+              <Text style={styles.dateLabel}>Trả phòng</Text>
+              <Text style={styles.dateValue}>{formatDate(item.checkOut)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.metaRow}>
+            <View style={styles.metaChip}>
+              <MaterialCommunityIcons name="moon-waning-crescent" size={13} color="#0891b2" />
+              <Text style={styles.metaText}>{nights} đêm</Text>
+            </View>
+            {!!item.guestsCount && (
+              <View style={styles.metaChip}>
+                <MaterialCommunityIcons name="account-multiple" size={13} color="#0891b2" />
+                <Text style={styles.metaText}>{item.guestsCount} khách</Text>
+              </View>
+            )}
+          </View>
+
+          <Divider style={styles.divider} />
+
+          <View style={styles.priceSection}>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Tổng giá</Text>
+              <Text style={styles.priceValue}>₫{typeof item.totalPrice === "number" ? item.totalPrice.toLocaleString("vi-VN") : "—"}</Text>
+            </View>
+            {typeof item.depositAmount === "number" && item.depositAmount > 0 && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceSubLabel}>Tiền cọc</Text>
+                <Text style={styles.priceSubValue}>₫{item.depositAmount.toLocaleString("vi-VN")}</Text>
+              </View>
+            )}
+            {typeof item.remainingAmount === "number" && item.remainingAmount > 0 && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceSubLabel}>Còn lại</Text>
+                <Text style={[styles.priceSubValue, { color: "#f59e0b" }]}>₫{item.remainingAmount.toLocaleString("vi-VN")}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Actions for PENDING */}
+          {item.status === "PENDING" && (
+            <View style={styles.actionsRow}>
+              <TouchableOpacity style={[styles.actionBtn, styles.btnPrimary]} onPress={() => navigation.navigate("PaymentInitiation", { bookingId: item.id })}>
+                <MaterialCommunityIcons name="credit-card-outline" size={14} color="#fff" />
+                <Text style={styles.btnTextLight}>Thanh toán</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionBtn, styles.btnSecondary]} onPress={() => navigation.navigate("BookingEdit", { bookingId: item.id })}>
+                <MaterialCommunityIcons name="pencil-outline" size={14} color="#0891b2" />
+                <Text style={styles.btnTextDark}>Chỉnh sửa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionBtn, styles.btnDanger]} onPress={() => { setSelectedBookingId(item.id); setCancelDialogVisible(true); }}>
+                <MaterialCommunityIcons name="close-circle-outline" size={14} color="#ef4444" />
+                <Text style={styles.btnTextDanger}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Write review for COMPLETED */}
+          {item.status === "COMPLETED" && !hasReview && (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.btnReview, { marginTop: 12, width: "100%" }]}
+              onPress={() => navigation.navigate("CreateReview", { bookingId: item.id, homestayName: item.homestayName })}
+            >
+              <MaterialCommunityIcons name="star-outline" size={14} color="#fff" />
+              <Text style={styles.btnTextLight}>Viết đánh giá</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Card>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Đặt Phòng" />
 
+      {/* Filter tabs */}
+      <View style={styles.tabsWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
+          {FILTER_TABS.map((tab) => {
+            const count = tab.key === "ALL" ? items.length : items.filter((i) => i.status === tab.key).length;
+            const isActive = activeFilter === tab.key;
+            return (
+              <TouchableOpacity key={tab.key} style={[styles.tab, isActive && styles.tabActive]} onPress={() => setActiveFilter(tab.key)}>
+                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{tab.label}</Text>
+                <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>{count}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       <FlatList
-        data={items}
+        data={filteredItems}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const nights = getDaysDifference(item.checkIn, item.checkOut);
-
-          return (
-            <Card style={styles.bookingCard} onPress={() => { }}>
-              {/* Header */}
-              <View style={styles.cardHeader}>
-                <View style={styles.titleSection}>
-                  <MaterialCommunityIcons
-                    name={getStatusIcon(item.status)}
-                    size={20}
-                    color="#0891b2"
-                  />
-                  <View>
-                    <Text style={styles.homestayName} numberOfLines={1}>
-                      {item.homestayName || "Căn nhà"}
-                    </Text>
-                    <Text style={styles.bookingId}>#{item.id.slice(0, 8)}</Text>
-                  </View>
-                </View>
-                <StatusBadge status={item.status} />
-              </View>
-
-              <Divider style={styles.cardDivider} />
-
-              {/* Dates */}
-              <View style={styles.detailRow}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Nhận Phòng</Text>
-                  <Text style={styles.detailValue}>
-                    {formatDate(item.checkIn)}
-                  </Text>
-                </View>
-                <MaterialCommunityIcons
-                  name="arrow-right"
-                  size={16}
-                  color="#cbd5e1"
-                />
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Trả Phòng</Text>
-                  <Text style={styles.detailValue}>
-                    {formatDate(item.checkOut)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Nights */}
-              <View style={styles.nightsRow}>
-                <MaterialCommunityIcons
-                  name="moon-waning-crescent"
-                  size={16}
-                  color="#64748b"
-                />
-                <Text style={styles.nightsText}>{nights} đêm</Text>
-              </View>
-
-              {/* Guests */}
-              {item.guestsCount && (
-                <View style={styles.guestsRow}>
-                  <MaterialCommunityIcons
-                    name="account-multiple"
-                    size={16}
-                    color="#64748b"
-                  />
-                  <Text style={styles.guestsText}>
-                    {item.guestsCount} khách
-                  </Text>
-                </View>
-              )}
-
-              {/* Price Section */}
-              <Divider style={styles.cardDivider} />
-              <View style={styles.priceSection}>
-                <View>
-                  <Text style={styles.priceLabel}>Tổng Giá</Text>
-                  <Text style={styles.priceValue}>
-                    ₫{typeof item.totalPrice === "number"
-                      ? item.totalPrice.toLocaleString("vi-VN")
-                      : "0"}
-                  </Text>
-                </View>
-                {item.paymentStatus && (
-                  <StatusBadge status={item.paymentStatus} />
-                )}
-              </View>
-
-              {/* Actions */}
-              {item.status === "PENDING" && (
-                <Button
-                  title="Hủy Đặt Phòng"
-                  variant="danger"
-                  size="small"
-                  onPress={() => {
-                    setSelectedBookingId(item.id);
-                    setCancelDialogVisible(true);
-                  }}
-                  style={styles.cancelButton}
-                />
-              )}
-            </Card>
-          );
-        }}
-        ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <View style={styles.summaryBox}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Tất Cả</Text>
-                <Text style={styles.summaryValue}>{items.length}</Text>
-              </View>
-              <View style={styles.dividerV} />
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Chờ Xác Nhận</Text>
-                <Text style={styles.summaryValue}>
-                  {items.filter((i) => i.status === "PENDING").length}
-                </Text>
-              </View>
-              <View style={styles.dividerV} />
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Hoàn Thành</Text>
-                <Text style={styles.summaryValue}>
-                  {items.filter((i) => i.status === "COMPLETED").length}
-                </Text>
-              </View>
-            </View>
-          </View>
-        }
+        renderItem={renderCard}
         ListEmptyComponent={
           <EmptyState
             icon="calendar-outline"
             title="Không có đặt phòng"
             description="Bạn chưa có đặt phòng nào. Hãy tìm và đặt một căn nhà hôm nay!"
-            action={{
-              label: "Tìm Căn Nhà",
-              onPress: () => { },
-            }}
+            action={{ label: "Tìm Căn Nhà", onPress: () => { } }}
           />
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#0891b2"
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0891b2" />}
       />
 
-      {/* Cancel Booking Confirmation */}
       <AlertDialog
         visible={cancelDialogVisible}
         title="Hủy Đặt Phòng"
         message="Bạn có chắc chắn muốn hủy đặt phòng này không?"
-        confirmText="Hủy"
+        confirmText="Hủy đặt phòng"
         cancelText="Đóng"
         confirmButtonColor="danger"
         onConfirm={handleCancelBooking}
-        onCancel={() => {
-          setCancelDialogVisible(false);
-          setSelectedBookingId(null);
-        }}
+        onCancel={() => { setCancelDialogVisible(false); setSelectedBookingId(null); }}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  listHeader: {
-    marginBottom: 16,
-  },
-  summaryBox: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: "#64748b",
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0891b2",
-  },
-  dividerV: {
-    width: 1,
-    backgroundColor: "#e2e8f0",
-  },
-  bookingCard: {
-    marginBottom: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  titleSection: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  homestayName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1e293b",
-  },
-  bookingId: {
-    fontSize: 12,
-    color: "#64748b",
-    marginTop: 2,
-  },
-  cardDivider: {
-    marginVertical: 12,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  detailItem: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: "#64748b",
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  nightsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 8,
-  },
-  nightsText: {
-    fontSize: 13,
-    color: "#64748b",
-  },
-  guestsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 12,
-  },
-  guestsText: {
-    fontSize: 13,
-    color: "#64748b",
-  },
-  priceSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  priceLabel: {
-    fontSize: 12,
-    color: "#64748b",
-    marginBottom: 4,
-  },
-  priceValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0891b2",
-  },
-  cancelButton: {
-    marginTop: 12,
-  },
+  container: { flex: 1, backgroundColor: "#f0f9ff" },
+  tabsWrapper: { backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
+  tabsContent: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  tab: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: "transparent" },
+  tabActive: { backgroundColor: "#e0f2fe", borderColor: "#0891b2" },
+  tabLabel: { fontSize: 13, color: "#64748b", fontWeight: "500" },
+  tabLabelActive: { color: "#0891b2", fontWeight: "700" },
+  tabBadge: { minWidth: 18, height: 18, borderRadius: 9, backgroundColor: "#e2e8f0", alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  tabBadgeActive: { backgroundColor: "#0891b2" },
+  tabBadgeText: { fontSize: 11, color: "#64748b", fontWeight: "600" },
+  tabBadgeTextActive: { color: "#fff" },
+  listContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
+  bookingCard: { marginBottom: 14, padding: 0, overflow: "hidden", borderRadius: 14 },
+  cardHeaderBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 10 },
+  cardHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  cardHeaderTitle: { fontSize: 14, fontWeight: "700", color: "#fff", flex: 1 },
+  cardHeaderId: { fontSize: 11, color: "rgba(255,255,255,0.8)" },
+  cardBody: { paddingHorizontal: 14, paddingVertical: 12 },
+  statusRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
+  divider: { marginVertical: 10 },
+  datesRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  dateItem: { flex: 1 },
+  dateLabel: { fontSize: 11, color: "#94a3b8", fontWeight: "500", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.4 },
+  dateValue: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
+  metaRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
+  metaChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#e0f2fe", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  metaText: { fontSize: 12, color: "#0891b2", fontWeight: "600" },
+  priceSection: { gap: 4 },
+  priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  priceLabel: { fontSize: 13, color: "#64748b", fontWeight: "500" },
+  priceValue: { fontSize: 18, fontWeight: "800", color: "#0891b2" },
+  priceSubLabel: { fontSize: 12, color: "#94a3b8" },
+  priceSubValue: { fontSize: 13, fontWeight: "600", color: "#475569" },
+  actionsRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  actionBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, flex: 1 },
+  btnPrimary: { backgroundColor: "#0891b2" },
+  btnSecondary: { backgroundColor: "#e0f2fe", borderWidth: 1, borderColor: "#0891b2" },
+  btnDanger: { backgroundColor: "#fee2e2", borderWidth: 1, borderColor: "#ef4444" },
+  btnReview: { backgroundColor: "#f59e0b" },
+  btnTextLight: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  btnTextDark: { fontSize: 12, fontWeight: "700", color: "#0891b2" },
+  btnTextDanger: { fontSize: 12, fontWeight: "700", color: "#ef4444" },
 });

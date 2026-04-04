@@ -74,7 +74,7 @@ export default function PublicExploreScreen() {
       setAllHomestays(sorted);
       setHomestays(sorted);
     } catch (e) {
-      logger.error("Public explore load homestays", e);
+
       showToast("Không thể tải danh sách homestay", "error");
     } finally {
       setLoading(false);
@@ -260,7 +260,7 @@ export default function PublicExploreScreen() {
                   ? `${item!.districtName}, ${item!.provinceName}`
                   : item!.address
               }
-              onPress={() => navigation.navigate("HomestayDetail", { id: item!.id })}
+              onPress={() => navigation.navigate("HomestayDetail", { id: item!.id, homestay: item })}
               onWishlistPress={() => {
                 showToast("Đăng nhập để lưu yêu thích", "info");
                 navigation.navigate("Login");

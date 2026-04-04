@@ -56,7 +56,7 @@ export default function ContactScreen() {
             }
         } catch (error: any) {
             showToast(error?.message || "Gửi liên hệ thất bại", "error");
-            logger.error("Failed to send contact", error);
+
         } finally {
             setSending(false);
         }

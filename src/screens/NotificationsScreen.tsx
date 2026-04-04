@@ -37,7 +37,7 @@ export default function NotificationsScreen() {
             setUnreadCount(count);
         } catch (error) {
             showToast("Không thể tải thông báo", "error");
-            logger.error("Failed to load notifications", error);
+
         } finally {
             setLoading(false);
             setRefreshing(false);

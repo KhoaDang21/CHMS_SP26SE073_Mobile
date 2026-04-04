@@ -50,8 +50,9 @@ export default function HomestayDetailScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const id = route.params?.id as string;
-  const [item, setItem] = useState<Homestay | null>(null);
-  const [loading, setLoading] = useState(true);
+  const initialHomestay = route.params?.homestay as Homestay | undefined;
+  const [item, setItem] = useState<Homestay | null>(initialHomestay || null);
+  const [loading, setLoading] = useState(!initialHomestay);
   const [booking, setBooking] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
@@ -68,20 +69,35 @@ export default function HomestayDetailScreen() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
+  // Validate ID exists
+  useEffect(() => {
+    if (!id && !initialHomestay) {
+      showToast("ID căn nhà không hợp lệ", "error");
+    }
+  }, [id, initialHomestay]);
+
   useEffect(() => {
     const load = async () => {
+      if (!id) return;
       try {
         const data = await publicHomestayService.getById(id);
-        setItem(data);
+        if (data) {
+          setItem(data);
+        } else if (!initialHomestay) {
+          // Only show error if we don't have fallback data
+          showToast("Không thể tải chi tiết căn nhà", "error");
+        }
       } catch (error) {
-        showToast("Không thể tải chi tiết căn nhà", "error");
-        logger.error("Failed to load homestay details", error);
+        console.warn("Failed to load homestay detail:", error);
+        if (!initialHomestay) {
+          showToast("Không thể tải chi tiết căn nhà", "error");
+        }
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [id]);
+  }, [id, initialHomestay]);
 
   // Fetch reviews
   useEffect(() => {
@@ -107,7 +123,6 @@ export default function HomestayDetailScreen() {
         }));
         setReviews(mapped);
       } catch (error) {
-        logger.error("Failed to load reviews", error);
         if (mounted) setReviews([]);
       } finally {
         if (mounted) setReviewsLoading(false);
@@ -381,7 +396,7 @@ export default function HomestayDetailScreen() {
                 {item.amenities.map((a: any, idx: number) => (
                   <View key={idx} style={styles.amenityChip}>
                     <MaterialCommunityIcons name="check-circle-outline" size={14} color="#10b981" />
-                    <Text style={styles.amenityText}>{a.name || a}</Text>
+                    <Text style={styles.amenityText}>{typeof a === "string" ? a : (a?.name ?? String(a))}</Text>
                   </View>
                 ))}
               </View>
@@ -406,12 +421,12 @@ export default function HomestayDetailScreen() {
           {/* Rating subcategories breakdown */}
           {reviews.length > 0 && (() => {
             const hasSubRatings = reviews.some((r) =>
-              r.cleanlinessRating > 0 || r.locationRating > 0 || r.valueRating > 0 || r.communicationRating > 0
+              (r.cleanlinessRating ?? 0) > 0 || (r.locationRating ?? 0) > 0 || (r.valueRating ?? 0) > 0 || (r.communicationRating ?? 0) > 0
             );
             if (!hasSubRatings) return null;
             const avg = (key: keyof Omit<Review, "id" | "customerName" | "comment" | "replyFromOwner" | "createdAt">) =>
               Math.round(
-                (reviews.reduce((s, r) => s + (r[key] as number || 0), 0) / reviews.length) * 10
+                (reviews.reduce((s, r) => s + ((r[key] as number) ?? 0), 0) / reviews.length) * 10
               ) / 10;
             const categories = [
               { label: "Vệ sinh", rating: avg("cleanlinessRating") },
@@ -724,7 +739,7 @@ const styles = StyleSheet.create({
     width: "100%", height: 4, backgroundColor: "#e2e8f0", borderRadius: 2, overflow: "hidden",
     marginTop: 2
   },
-  ratingBarFill: { height: "100%", backgroundColor: "#0891b2", borderRadius: 2 },
+  ratingBarFill: { height: 4, backgroundColor: "#0891b2", borderRadius: 2 },
 
   loadingText: { textAlign: "center", color: "#94a3b8", fontSize: 14, paddingVertical: 16 },
   emptyText: { textAlign: "center", color: "#94a3b8", fontSize: 14, paddingVertical: 20 },

@@ -23,18 +23,11 @@ export const RegisterSchema = z.object({
   phone: z
     .string()
     .min(1, "Số điện thoại không được trống")
-    .regex(/^\d{10,11}$/, "Số điện thoại không hợp lệ"),
+    .regex(/^0\d{9}$/, "Số điện thoại phải bắt đầu bằng 0 và đủ 10 số"),
   password: z
     .string()
     .min(1, "Mật khẩu không được trống")
-    .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
-    .regex(/[a-z]/, "Mật khẩu phải có ít nhất 1 chữ cái in thường")
-    .regex(/[A-Z]/, "Mật khẩu phải có ít nhất 1 chữ cái in hoa")
-    .regex(/\d/, "Mật khẩu phải có ít nhất 1 số")
-    .regex(
-      /[!@#$%^&*]/,
-      "Mật khẩu phải có ít nhất 1 ký tự đặc biệt (!@#$%^&*)",
-    ),
+    .min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
 });
 
 export const ProfileSchema = z.object({
@@ -45,7 +38,7 @@ export const ProfileSchema = z.object({
   phone: z
     .string()
     .min(1, "Số điện thoại không được trống")
-    .regex(/^\d{10,11}$/, "Số điện thoại không hợp lệ"),
+    .regex(/^0\d{9}$/, "Số điện thoại phải bắt đầu bằng 0 và đủ 10 số"),
 });
 
 export const BookingSchema = z

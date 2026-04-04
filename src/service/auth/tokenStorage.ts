@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "@/types";
-import { logger } from "@/utils/logger";
 
 const TOKEN_KEY = "authToken";
 const REFRESH_KEY = "refreshToken";
@@ -11,7 +10,6 @@ export const tokenStorage = {
     try {
       return await AsyncStorage.getItem(TOKEN_KEY);
     } catch (error) {
-      logger.error("Error getting token", error);
       return null;
     }
   },
@@ -19,7 +17,6 @@ export const tokenStorage = {
     try {
       return await AsyncStorage.getItem(REFRESH_KEY);
     } catch (error) {
-      logger.error("Error getting refresh token", error);
       return null;
     }
   },
@@ -29,7 +26,6 @@ export const tokenStorage = {
       if (!raw) return null;
       return JSON.parse(raw) as User;
     } catch (error) {
-      logger.error("Error getting user", error);
       return null;
     }
   },
@@ -41,7 +37,6 @@ export const tokenStorage = {
       }
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
     } catch (error) {
-      logger.error("Error setting session", error);
       throw error;
     }
   },
@@ -49,7 +44,6 @@ export const tokenStorage = {
     try {
       await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_KEY, USER_KEY]);
     } catch (error) {
-      logger.error("Error clearing storage", error);
       throw error;
     }
   },

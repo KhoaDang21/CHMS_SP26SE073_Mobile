@@ -78,7 +78,7 @@ export default function PaymentResultScreen() {
                     setStatus("PENDING");
                 }
             } catch (error) {
-                logger.error("Failed to check payment status", error);
+
                 setStatus("ERROR");
                 showToast("Không thể kiểm tra trạng thái thanh toán", "error");
             } finally {

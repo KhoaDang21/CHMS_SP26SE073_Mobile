@@ -64,17 +64,7 @@ class Logger {
       this.logs.shift();
     }
 
-    // Console output based on level
-    const style = this.getConsoleStyle(level);
-    if (__DEV__) {
-      console.log(
-        `%c[${level.toUpperCase()}]%c ${message}`,
-        style,
-        "color: inherit",
-      );
-      if (data) console.log(data);
-      if (stack) console.log(stack);
-    }
+    // Silent logging - no console output
   }
 
   /**
