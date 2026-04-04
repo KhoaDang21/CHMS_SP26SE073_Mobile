@@ -87,30 +87,28 @@ export const notificationService = {
 
   /** GET /api/notifications/settings */
   async getPreferences(): Promise<NotificationPreferences> {
-    const res = await apiClient.get<any>(
-      apiConfig.endpoints.notifications.settings,
-    );
-    const data = res?.data ?? res ?? {};
-    return {
-      emailNotif: data.emailNotif ?? data.emailNotifications ?? true,
-      pushNotif: data.pushNotif ?? data.pushNotifications ?? true,
-      smsNotif: data.smsNotif ?? data.smsNotifications ?? false,
-    };
+    try {
+      const res = await apiClient.get<any>(
+        apiConfig.endpoints.notifications.settings,
+      );
+      const data = res?.data ?? res ?? {};
+      return {
+        emailNotif: data.emailNotif ?? data.emailNotifications ?? true,
+        pushNotif: data.pushNotif ?? data.pushNotifications ?? true,
+        smsNotif: data.smsNotif ?? data.smsNotifications ?? false,
+      };
+    } catch {
+      return { emailNotif: true, pushNotif: true, smsNotif: false };
+    }
   },
 
   /** PUT /api/notifications/settings */
   async updatePreferences(
     preferences: Partial<NotificationPreferences>,
-  ): Promise<NotificationPreferences> {
-    const res = await apiClient.put<any>(
+  ): Promise<void> {
+    await apiClient.put<any>(
       apiConfig.endpoints.notifications.settings,
       preferences,
     );
-    const data = res?.data ?? res ?? {};
-    return {
-      emailNotif: data.emailNotif ?? true,
-      pushNotif: data.pushNotif ?? true,
-      smsNotif: data.smsNotif ?? false,
-    };
   },
 };

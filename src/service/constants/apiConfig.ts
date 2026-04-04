@@ -1,6 +1,5 @@
 /**
  * Customer (mobile) API paths — aligned with FE `src/config/apiConfig.ts`
- * and FE auth (`src/config/authConfig.ts` uses `/api` + `/Auth/...` for auth).
  */
 export const apiConfig = {
   baseURL: "http://163.227.230.54:8088",
@@ -15,7 +14,6 @@ export const apiConfig = {
       refreshToken: "/api/Auth/refresh-token",
       verifyOtp: "/api/Auth/verify-otp",
       googleLogin: "/api/Auth/google-login",
-      profile: "/api/users/profile",
     },
     homestays: {
       list: "/api/homestays",
@@ -46,6 +44,7 @@ export const apiConfig = {
     },
     payments: {
       createLink: "/api/payment/create-link",
+      webhook: "/api/payment/webhook",
       detail: (id: string) => `/api/payment/${id}`,
       history: "/api/payment/history",
     },

@@ -94,7 +94,7 @@ export const aiService = {
 
   async askFAQ(question: string): Promise<FAQ[]> {
     const res = await apiClient.post<unknown>(apiConfig.endpoints.ai.askFaq, {
-      question,
+      message: question,
     });
     const list = extractArray<Record<string, unknown>>(res);
     return list.map((item) => ({

@@ -41,4 +41,15 @@ export const wishlistService = {
   async remove(homestayId: string) {
     await apiClient.delete(apiConfig.endpoints.wishlist.remove(homestayId));
   },
+
+  /** GET /api/recently-viewed */
+  async getRecentlyViewed(): Promise<Homestay[]> {
+    try {
+      const res = await apiClient.get<unknown>(apiConfig.endpoints.wishlist.recentlyViewed);
+      const list = extractArray<Record<string, unknown>>(res);
+      return list.map(mapHomestay);
+    } catch {
+      return [];
+    }
+  },
 };

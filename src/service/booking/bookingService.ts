@@ -147,4 +147,43 @@ export const bookingService = {
       return null;
     }
   },
+
+  /** POST /api/bookings/calculate — tính giá trước khi đặt */
+  async calculate(payload: {
+    homestayId: string;
+    checkIn: string;
+    checkOut: string;
+    guestsCount: number;
+    promotionId?: string;
+  }): Promise<number | null> {
+    try {
+      const res = await apiClient.post<Record<string, unknown>>(
+        apiConfig.endpoints.bookings.calculate,
+        payload,
+      );
+      const price = (res as any)?.data ?? res;
+      return typeof price === "number" ? price : null;
+    } catch {
+      return null;
+    }
+  },
+
+  /** POST /api/bookings/:id/special-requests — BE nhận raw string */
+  async updateSpecialRequests(
+    id: string,
+    specialRequests: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const res = await apiClient.post<Record<string, unknown>>(
+        apiConfig.endpoints.bookings.specialRequests(id),
+        specialRequests,
+      );
+      return {
+        success: Boolean((res as any)?.success ?? true),
+        message: String((res as any)?.message ?? "Đã ghi nhận yêu cầu đặc biệt."),
+      };
+    } catch (e: any) {
+      return { success: false, message: e?.message ?? "Đã xảy ra lỗi." };
+    }
+  },
 };

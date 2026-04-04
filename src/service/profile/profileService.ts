@@ -18,7 +18,18 @@ export const profileService = {
       phone: data.phone ?? data.phoneNumber ?? "",
     };
   },
-  async updateProfile(payload: { fullName: string; phoneNumber: string }) {
+
+  /** PUT /api/users/profile — BE UpdateUserProfileRequestDTO: { fullName, phoneNumber, avatarUrl } */
+  async updateProfile(payload: { fullName: string; phoneNumber: string; avatarUrl?: string }) {
     return apiClient.put(apiConfig.endpoints.profile.update, payload);
+  },
+
+  /** PUT /api/users/profile/password — BE ChangePasswordRequestDTO: { currentPassword, newPassword, confirmPassword } */
+  async changePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) {
+    return apiClient.put(apiConfig.endpoints.profile.changePassword, payload);
   },
 };
