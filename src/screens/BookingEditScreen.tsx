@@ -1,5 +1,6 @@
 import {
     Button,
+    DatePickerModal,
     Divider,
     Header,
     Input,
@@ -10,7 +11,6 @@ import type { Booking } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -32,8 +32,7 @@ export default function BookingEditScreen() {
     const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [showCheckInPicker, setShowCheckInPicker] = useState(false);
-    const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
+    const [activePicker, setActivePicker] = useState<"checkIn" | "checkOut" | null>(null);
 
     const [checkInDate, setCheckInDate] = useState(new Date());
     const [checkOutDate, setCheckOutDate] = useState(new Date(Date.now() + 86400000));
@@ -68,26 +67,24 @@ export default function BookingEditScreen() {
         loadBooking();
     }, [bookingId]);
 
-    const handleCheckInDate = (_: any, date?: Date) => {
-        setShowCheckInPicker(false);
-        if (date) {
-            if (date < new Date(booking?.checkIn || new Date())) {
+    const handleConfirmDate = (date: Date) => {
+        if (activePicker === "checkIn") {
+            if (date < new Date()) {
                 showToast("Ngày nhận phòng không được là quá khứ", "warning");
                 return;
             }
             setCheckInDate(date);
-        }
-    };
-
-    const handleCheckOutDate = (_: any, date?: Date) => {
-        setShowCheckOutPicker(false);
-        if (date) {
+            if (checkOutDate <= date) {
+                setCheckOutDate(new Date(date.getTime() + 86400000));
+            }
+        } else if (activePicker === "checkOut") {
             if (date <= checkInDate) {
                 showToast("Ngày trả phòng phải sau ngày nhận phòng", "warning");
                 return;
             }
             setCheckOutDate(date);
         }
+        setActivePicker(null);
     };
 
     const handleSaveChanges = useCallback(async () => {
@@ -195,7 +192,7 @@ export default function BookingEditScreen() {
 
                         <TouchableOpacity
                             style={styles.dateButton}
-                            onPress={() => setShowCheckInPicker(true)}
+                            onPress={() => setActivePicker("checkIn")}
                             activeOpacity={0.7}
                         >
                             <MaterialCommunityIcons
@@ -209,18 +206,9 @@ export default function BookingEditScreen() {
                             </View>
                         </TouchableOpacity>
 
-                        {showCheckInPicker && (
-                            <DateTimePicker
-                                value={checkInDate}
-                                mode="date"
-                                display="spinner"
-                                onChange={handleCheckInDate}
-                            />
-                        )}
-
                         <TouchableOpacity
                             style={styles.dateButton}
-                            onPress={() => setShowCheckOutPicker(true)}
+                            onPress={() => setActivePicker("checkOut")}
                             activeOpacity={0.7}
                         >
                             <MaterialCommunityIcons
@@ -235,6 +223,15 @@ export default function BookingEditScreen() {
                                 </Text>
                             </View>
                         </TouchableOpacity>
+
+                        {showCheckInPicker && (
+                            <DateTimePicker
+                                value={checkInDate}
+                                mode="date"
+                                display="spinner"
+                                onChange={handleCheckInDate}
+                            />
+                        )}
 
                         {showCheckOutPicker && (
                             <DateTimePicker
@@ -315,6 +312,14 @@ export default function BookingEditScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+            <DatePickerModal
+                visible={activePicker !== null}
+                value={activePicker === "checkOut" ? checkOutDate : checkInDate}
+                minimumDate={activePicker === "checkOut" ? new Date(checkInDate.getTime() + 86400000) : new Date()}
+                title={activePicker === "checkIn" ? "Chọn ngày nhận phòng" : "Chọn ngày trả phòng"}
+                onConfirm={handleConfirmDate}
+                onCancel={() => setActivePicker(null)}
+            />
         </SafeAreaView>
     );
 }

@@ -15,7 +15,7 @@ interface AlertDialogProps {
     onCancel?: () => void;
     confirmText?: string;
     cancelText?: string;
-    confirmButtonColor?: "primary" | "danger";
+    confirmButtonColor?: "primary" | "danger" | "warning";
 }
 
 export const AlertDialog: React.FC<AlertDialogProps> = ({
@@ -49,6 +49,8 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
                                 styles.button,
                                 confirmButtonColor === "danger"
                                     ? styles.dangerButton
+                                    : confirmButtonColor === "warning"
+                                    ? styles.warningButton
                                     : styles.confirmButton,
                             ]}
                             onPress={onConfirm}
@@ -131,6 +133,9 @@ const styles = StyleSheet.create({
     },
     dangerButton: {
         backgroundColor: "#ef4444",
+    },
+    warningButton: {
+        backgroundColor: "#f97316",
     },
     cancelButtonText: {
         color: "#64748b",

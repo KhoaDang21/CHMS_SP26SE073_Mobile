@@ -5,3 +5,4 @@ export { Header, StatusBadge, SectionTitle, Divider, Badge } from "./Header";
 export { AlertDialog, LoadingDialog } from "./AlertDialog";
 export { LoadingIndicator } from "./LoadingIndicator";
 export { BottomSheet } from "./BottomSheet";
+export { DatePickerModal } from "./DatePickerModal";
