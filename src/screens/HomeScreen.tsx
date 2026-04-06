@@ -1,5 +1,6 @@
 import {
   EmptyState,
+  DatePickerModal,
   HomestayCard,
   LoadingSkeletonCard
 } from "@/components";
@@ -16,7 +17,6 @@ import type { Booking, Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -45,8 +45,7 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState("");
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
-  const [showCheckInPicker, setShowCheckInPicker] = useState(false);
-  const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
+  const [activePicker, setActivePicker] = useState<"checkIn" | "checkOut" | null>(null);
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [userName, setUserName] = useState("");
 
@@ -216,7 +215,7 @@ export default function HomeScreen() {
   }, [loadHomestays]);
 
   const handleCheckInDate = (_: unknown, date?: Date) => {
-    setShowCheckInPicker(false);
+    setActivePicker(null);
     if (date) {
       setCheckInDate(date);
       if (checkOutDate && checkOutDate <= date) {
@@ -228,7 +227,7 @@ export default function HomeScreen() {
   };
 
   const handleCheckOutDate = (_: unknown, date?: Date) => {
-    setShowCheckOutPicker(false);
+    setActivePicker(null);
     if (date) {
       if (checkInDate && date <= checkInDate) {
         showToast("Ngày trả phòng phải sau ngày nhận phòng", "warning");
@@ -376,7 +375,7 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.dateRow}>
-                <TouchableOpacity style={[styles.dateChip, checkInDate && styles.dateChipActive]} onPress={() => setShowCheckInPicker(true)}>
+                <TouchableOpacity style={[styles.dateChip, checkInDate && styles.dateChipActive]} onPress={() => setActivePicker("checkIn")}>
                   <MaterialCommunityIcons name="calendar-arrow-right" size={16} color="#fff" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.dateChipLabel}>Nhận phòng</Text>
@@ -393,7 +392,7 @@ export default function HomeScreen() {
                   <MaterialCommunityIcons name="arrow-right" size={16} color="rgba(255,255,255,0.6)" />
                 </View>
 
-                <TouchableOpacity style={[styles.dateChip, checkOutDate && styles.dateChipActive]} onPress={() => setShowCheckOutPicker(true)}>
+                <TouchableOpacity style={[styles.dateChip, checkOutDate && styles.dateChipActive]} onPress={() => setActivePicker("checkOut")}>
                   <MaterialCommunityIcons name="calendar-arrow-left" size={16} color="#fff" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.dateChipLabel}>Trả phòng</Text>
@@ -496,24 +495,25 @@ export default function HomeScreen() {
         )}
       />
 
-      {showCheckInPicker && (
-        <DateTimePicker
-          value={checkInDate || new Date()}
-          mode="date"
-          display="spinner"
-          onChange={handleCheckInDate}
-          minimumDate={new Date()}
-        />
-      )}
-      {showCheckOutPicker && (
-        <DateTimePicker
-          value={checkOutDate || (checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date(Date.now() + 86400000))}
-          mode="date"
-          display="spinner"
-          onChange={handleCheckOutDate}
-          minimumDate={checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date(Date.now() + 86400000)}
-        />
-      )}
+      <DatePickerModal
+        visible={activePicker !== null}
+        value={
+          activePicker === "checkOut"
+            ? (checkOutDate || (checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date(Date.now() + 86400000)))
+            : (checkInDate || new Date())
+        }
+        minimumDate={
+          activePicker === "checkOut"
+            ? (checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date(Date.now() + 86400000))
+            : new Date()
+        }
+        title={activePicker === "checkIn" ? "Chọn ngày nhận phòng" : "Chọn ngày trả phòng"}
+        onConfirm={(date) => {
+          if (activePicker === "checkIn") handleCheckInDate(null, date);
+          else handleCheckOutDate(null, date);
+        }}
+        onCancel={() => setActivePicker(null)}
+      />
 
       <Modal visible={picker !== null} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setPicker(null)}>

@@ -106,7 +106,7 @@ export const wishlistService = {
 
       return finalList;
     } catch (error) {
-      return [
+      return [];
     }
   },
 
@@ -141,7 +141,7 @@ export const wishlistService = {
       const list = extractArray<Record<string, unknown>>(res);
       return list.map(mapHomestay);
     } catch (error) {
-      return [
+      return [];
     }
   },
 };

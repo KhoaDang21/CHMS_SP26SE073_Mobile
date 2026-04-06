@@ -1,6 +1,7 @@
 import {
   AlertDialog,
   Button,
+  DatePickerModal,
   Divider,
   Header,
   Input,
@@ -16,7 +17,6 @@ import type { Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -55,8 +55,7 @@ export default function HomestayDetailScreen() {
   const [loading, setLoading] = useState(!initialHomestay);
   const [booking, setBooking] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [showCheckInPicker, setShowCheckInPicker] = useState(false);
-  const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
+  const [activePicker, setActivePicker] = useState<"checkIn" | "checkOut" | null>(null);
   const [successDialogVisible, setSuccessDialogVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -180,20 +179,21 @@ export default function HomestayDetailScreen() {
     }
   }, [id, isFavorite]);
 
-  const handleCheckInDate = (_: any, date?: Date) => {
-    setShowCheckInPicker(false);
-    if (date) setCheckInDate(date);
-  };
-
-  const handleCheckOutDate = (_: any, date?: Date) => {
-    setShowCheckOutPicker(false);
-    if (date) {
+  const handleConfirmDate = (date: Date) => {
+    if (activePicker === "checkIn") {
+      setCheckInDate(date);
+      // Nếu checkout <= checkin mới, tự đẩy checkout lên 1 ngày
+      if (checkOutDate <= date) {
+        setCheckOutDate(new Date(date.getTime() + 86400000));
+      }
+    } else if (activePicker === "checkOut") {
       if (date <= checkInDate) {
         showToast("Ngày trả phòng phải sau ngày nhận phòng", "warning");
         return;
       }
       setCheckOutDate(date);
     }
+    setActivePicker(null);
   };
 
   const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000);
@@ -212,6 +212,8 @@ export default function HomestayDetailScreen() {
     if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
     return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase();
   };
+
+  const [bookingCreatedId, setBookingCreatedId] = useState<string | null>(null);
 
   const handleBooking = useCallback(async () => {
     if (!hasSession) {
@@ -233,7 +235,10 @@ export default function HomestayDetailScreen() {
         contactPhone: phone,
       });
       if (res.success) {
-        setSuccessMessage(res.message || "Đặt phòng thành công!");
+        // Lưu bookingId để navigate đến PaymentInitiation
+        const createdId = res.data?.id ?? null;
+        setBookingCreatedId(createdId);
+        setSuccessMessage(res.message || "Đặt phòng thành công! Vui lòng thanh toán cọc để xác nhận.");
         setSuccessDialogVisible(true);
       } else {
         showToast(res.message || "Không thể đặt phòng", "error");
@@ -529,7 +534,7 @@ export default function HomestayDetailScreen() {
             <>
               {/* Date Pickers */}
               <View style={styles.dateRow}>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCheckInPicker(true)}>
+                <TouchableOpacity style={styles.dateBtn} onPress={() => setActivePicker("checkIn")}>
                   <MaterialCommunityIcons name="calendar-arrow-right" size={18} color="#0891b2" />
                   <View>
                     <Text style={styles.dateBtnLabel}>Nhận phòng</Text>
@@ -539,7 +544,7 @@ export default function HomestayDetailScreen() {
                 <View style={styles.dateArrow}>
                   <MaterialCommunityIcons name="arrow-right" size={16} color="#94a3b8" />
                 </View>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCheckOutPicker(true)}>
+                <TouchableOpacity style={styles.dateBtn} onPress={() => setActivePicker("checkOut")}>
                   <MaterialCommunityIcons name="calendar-arrow-left" size={18} color="#0891b2" />
                   <View>
                     <Text style={styles.dateBtnLabel}>Trả phòng</Text>
@@ -598,19 +603,31 @@ export default function HomestayDetailScreen() {
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {showCheckInPicker && (
-        <DateTimePicker value={checkInDate} mode="date" display="spinner" onChange={handleCheckInDate} minimumDate={new Date()} />
-      )}
-      {showCheckOutPicker && (
-        <DateTimePicker value={checkOutDate} mode="date" display="spinner" onChange={handleCheckOutDate} minimumDate={new Date(checkInDate.getTime() + 86400000)} />
-      )}
+      <DatePickerModal
+        visible={activePicker !== null}
+        value={activePicker === "checkOut" ? checkOutDate : checkInDate}
+        minimumDate={activePicker === "checkOut" ? new Date(checkInDate.getTime() + 86400000) : new Date()}
+        title={activePicker === "checkIn" ? "Chọn ngày nhận phòng" : "Chọn ngày trả phòng"}
+        onConfirm={handleConfirmDate}
+        onCancel={() => setActivePicker(null)}
+      />
 
       <AlertDialog
         visible={successDialogVisible}
-        title="Đặt phòng thành công"
-        message={successMessage}
-        confirmText="OK"
+        title="Đặt phòng thành công 🎉"
+        message={`${successMessage}\n\nBooking của bạn đang ở trạng thái CHỜ CỌC. Vui lòng thanh toán cọc để xác nhận chỗ ở.`}
+        confirmText="Đặt cọc ngay"
+        cancelText="Xem sau"
+        confirmButtonColor="warning"
         onConfirm={() => {
+          setSuccessDialogVisible(false);
+          if (bookingCreatedId) {
+            navigation.navigate("PaymentInitiation", { bookingId: bookingCreatedId });
+          } else {
+            navigation.navigate("MainTabs" as never, { screen: "Bookings" } as never);
+          }
+        }}
+        onCancel={() => {
           setSuccessDialogVisible(false);
           navigation.navigate("MainTabs" as never, { screen: "Bookings" } as never);
         }}

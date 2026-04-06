@@ -1,4 +1,4 @@
-import { EmptyState, HomestayCard, LoadingSkeletonCard } from "@/components";
+import { EmptyState, DatePickerModal, HomestayCard, LoadingSkeletonCard } from "@/components";
 import { tokenStorage } from "@/service/auth/tokenStorage";
 import { bookingService } from "@/service/booking/bookingService";
 import { fetchReviewSummary, publicHomestayService } from "@/service/homestay/publicHomestayService";
@@ -8,7 +8,6 @@ import type { Booking, Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -46,8 +45,7 @@ export default function LandingScreen() {
   // Date filters
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
-  const [showCheckInPicker, setShowCheckInPicker] = useState(false);
-  const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
+  const [activePicker, setActivePicker] = useState<"checkIn" | "checkOut" | null>(null);
 
   // Search
   const [searchText, setSearchText] = useState("");
@@ -262,8 +260,8 @@ export default function LandingScreen() {
 
               {/* Date pickers */}
               <View style={styles.dateRow}>
-                <TouchableOpacity style={[styles.dateBtn, checkInDate && styles.dateBtnActive]} onPress={() => setShowCheckInPicker(true)}>
-                  <MaterialCommunityIcons name="calendar-arrow-right" size={16} color={checkInDate ? "#0891b2" : "#64748b"} />
+                <TouchableOpacity style={[styles.dateBtn, checkInDate && styles.dateBtnActive]} onPress={() => setActivePicker("checkIn")}>
+                  <MaterialCommunityIcons name="calendar-arrow-right" size={16} color={checkInDate ? "#0891b2" : "#94a3b8"} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.dateBtnLabel}>Nhận phòng</Text>
                     <Text style={[styles.dateBtnValue, checkInDate && styles.dateBtnValueActive]}>
@@ -279,8 +277,8 @@ export default function LandingScreen() {
                 <View style={styles.dateSep}>
                   <MaterialCommunityIcons name="arrow-right" size={14} color="#94a3b8" />
                 </View>
-                <TouchableOpacity style={[styles.dateBtn, checkOutDate && styles.dateBtnActive]} onPress={() => setShowCheckOutPicker(true)}>
-                  <MaterialCommunityIcons name="calendar-arrow-left" size={16} color={checkOutDate ? "#0891b2" : "#64748b"} />
+                <TouchableOpacity style={[styles.dateBtn, checkOutDate && styles.dateBtnActive]} onPress={() => setActivePicker("checkOut")}>
+                  <MaterialCommunityIcons name="calendar-arrow-left" size={16} color={checkOutDate ? "#0891b2" : "#94a3b8"} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.dateBtnLabel}>Trả phòng</Text>
                     <Text style={[styles.dateBtnValue, checkOutDate && styles.dateBtnValueActive]}>
@@ -402,36 +400,33 @@ export default function LandingScreen() {
         }
       />
 
-      {/* Date Pickers */}
-      {showCheckInPicker && (
-        <DateTimePicker
-          value={checkInDate || new Date()}
-          mode="date"
-          display="spinner"
-          minimumDate={new Date()}
-          onChange={(_, date) => {
-            setShowCheckInPicker(false);
-            if (date) {
-              setCheckInDate(date);
-              if (checkOutDate && checkOutDate <= date) {
-                setCheckOutDate(addDays(date, 1));
-              }
+      {/* Date Picker Modal — chỉ 1 modal tại một thời điểm */}
+      <DatePickerModal
+        visible={activePicker !== null}
+        value={
+          activePicker === "checkOut"
+            ? (checkOutDate || addDays(checkInDate || new Date(), 1))
+            : (checkInDate || new Date())
+        }
+        minimumDate={
+          activePicker === "checkOut"
+            ? addDays(checkInDate || new Date(), 1)
+            : new Date()
+        }
+        title={activePicker === "checkIn" ? "Chọn ngày nhận phòng" : "Chọn ngày trả phòng"}
+        onConfirm={(date) => {
+          if (activePicker === "checkIn") {
+            setCheckInDate(date);
+            if (checkOutDate && checkOutDate <= date) {
+              setCheckOutDate(addDays(date, 1));
             }
-          }}
-        />
-      )}
-      {showCheckOutPicker && (
-        <DateTimePicker
-          value={checkOutDate || addDays(checkInDate || new Date(), 1)}
-          mode="date"
-          display="spinner"
-          minimumDate={addDays(checkInDate || new Date(), 1)}
-          onChange={(_, date) => {
-            setShowCheckOutPicker(false);
-            if (date) setCheckOutDate(date);
-          }}
-        />
-      )}
+          } else {
+            setCheckOutDate(date);
+          }
+          setActivePicker(null);
+        }}
+        onCancel={() => setActivePicker(null)}
+      />
 
       {/* Province / District Modal */}
       <Modal visible={picker !== null} transparent animationType="fade">
@@ -543,13 +538,13 @@ const styles = StyleSheet.create({
   dateRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   dateBtn: {
     flex: 1, flexDirection: "row", alignItems: "center", gap: 8,
-    borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 10, backgroundColor: "#f8fafc",
+    borderWidth: 1.5, borderColor: "#e2e8f0", borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 11, backgroundColor: "#f8fafc",
   },
-  dateBtnLabel: { fontSize: 10, color: "#94a3b8", fontWeight: "500" },
-  dateBtnValue: { fontSize: 12, color: "#64748b", fontWeight: "600" },
+  dateBtnActive: { borderColor: "#0891b2", backgroundColor: "#e0f2fe" },
+  dateBtnLabel: { fontSize: 10, color: "#94a3b8", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3 },
+  dateBtnValue: { fontSize: 13, color: "#64748b", fontWeight: "700", marginTop: 1 },
   dateBtnValueActive: { color: "#0891b2" },
-  dateBtnActive: { borderColor: "#0891b2", backgroundColor: "#ecf9ff" },
   dateSep: { alignItems: "center" },
   clearBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
