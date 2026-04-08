@@ -12,13 +12,15 @@ interface BottomSheetProps {
     onDismiss: () => void;
     children: React.ReactNode;
     snapPoints?: number[];
+    fullScreen?: boolean;
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
     visible,
     onDismiss,
     children,
-    snapPoints = [200, 400],
+    snapPoints: _snapPoints = [200, 400],
+    fullScreen = false,
 }) => {
     const insets = useSafeAreaInsets();
 
@@ -34,7 +36,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 activeOpacity={1}
                 onPress={onDismiss}
             >
-                <View style={[styles.sheet, { paddingBottom: insets.bottom }]}>
+                <View
+                    style={[
+                        styles.sheet,
+                        fullScreen ? styles.sheetFull : styles.sheetNormal,
+                        { paddingBottom: insets.bottom + 12 },
+                    ]}
+                >
                     <View style={styles.handle} />
                     <TouchableOpacity
                         activeOpacity={1}
@@ -60,8 +68,9 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         paddingTop: 12,
-        maxHeight: "80%",
     },
+    sheetNormal: { maxHeight: "86%" },
+    sheetFull: { minHeight: "88%", maxHeight: "96%" },
     handle: {
         width: 40,
         height: 4,
@@ -70,6 +79,7 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     content: {
-        padding: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
     },
 });

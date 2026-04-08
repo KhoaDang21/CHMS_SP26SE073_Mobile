@@ -1,7 +1,9 @@
 import { Card, Divider, Header, LoadingIndicator } from "@/components";
 import { bookingService } from "@/service/booking/bookingService";
+import { extraChargeService } from "@/service/extraCharge/extraChargeService";
+import { publicHomestayService } from "@/service/homestay/publicHomestayService";
 import { paymentService } from "@/service/payment/paymentService";
-import type { Booking } from "@/types";
+import type { Booking, ExtraCharge } from "@/types";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -27,12 +29,24 @@ export default function PaymentInitiationScreen() {
   const bookingId = route.params?.bookingId as string;
 
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [homestay, setHomestay] = useState<any>(null);
+  const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    bookingService.getBookingDetail(bookingId)
-      .then((data) => { if (data) setBooking(data); })
+    Promise.all([
+      bookingService.getBookingDetail(bookingId).then((data) => {
+        if (data) {
+          setBooking(data);
+          // Also load homestay info for detailed price breakdown
+          if (data.homestayId) {
+            publicHomestayService.getById(data.homestayId).then(setHomestay).catch(() => { });
+          }
+        }
+      }),
+      extraChargeService.getByBooking(bookingId).then((charges) => setExtraCharges(charges)).catch(() => setExtraCharges([])),
+    ])
       .catch(() => showToast("Không thể tải chi tiết đặt phòng", "error"))
       .finally(() => setLoading(false));
   }, [bookingId]);
@@ -47,6 +61,7 @@ export default function PaymentInitiationScreen() {
   const nights = booking
     ? Math.max(1, Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / 86400000))
     : 0;
+  const fullyPaid = booking?.paymentStatus === "FULLY_PAID";
 
   const handlePay = useCallback(async () => {
     if (!booking || amountDue <= 0) {
@@ -130,32 +145,92 @@ export default function PaymentInitiationScreen() {
 
           <Divider style={{ marginVertical: 12 }} />
 
-          {/* Price breakdown */}
+          {/* Price breakdown - detailed */}
           <View style={styles.priceBreakdown}>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Tổng tiền booking</Text>
-              <Text style={styles.priceVal}>{fmt(booking.totalPrice ?? 0)}</Text>
-            </View>
+            {/* Base price */}
+            {homestay?.pricePerNight && (
+              <>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>
+                    ₫{homestay.pricePerNight.toLocaleString("vi-VN")} × {nights} đêm
+                  </Text>
+                  <Text style={styles.priceVal}>{fmt(homestay.pricePerNight * nights)}</Text>
+                </View>
+                <Divider style={{ marginVertical: 8 }} />
+              </>
+            )}
+
+            {/* Experiences */}
+            {booking?.experiences && booking.experiences.length > 0 && (
+              <>
+                <View style={styles.experienceBreakdownBox}>
+                  <Text style={styles.experiencesBreakdownTitle}>Dịch vụ đã chọn</Text>
+                  {booking.experiences.map((exp) => (
+                    <View key={exp.id} style={styles.experienceBreakdownRow}>
+                      <Text style={styles.experienceBreakdownLabel}>{exp.name}</Text>
+                      <Text style={styles.experienceBreakdownPrice}>+{fmt(exp.price)}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Divider style={{ marginVertical: 8 }} />
+              </>
+            )}
+
+            {/* Subtotal */}
+            {(homestay?.pricePerNight || booking?.basePrice) && (
+              <>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Tổng cộng (trước cọc)</Text>
+                  <Text style={[styles.priceVal, { fontWeight: "700" }]}>
+                    {fmt(booking?.totalPrice ?? 0)}
+                  </Text>
+                </View>
+                <Divider style={{ marginVertical: 8 }} />
+              </>
+            )}
+
+            {/* Deposit breakdown */}
             <View style={[styles.priceRow, styles.depositRow]}>
               <Text style={[styles.priceLabel, isDepositPayment && styles.highlightLabel]}>
                 {isDepositPayment ? "→ Cọc ngay" : "Đã cọc"} ({depositPct}%)
               </Text>
               <Text style={[styles.priceVal, isDepositPayment ? styles.depositVal : styles.mutedVal]}>
-                {fmt(booking.depositAmount ?? 0)}
+                {fmt(booking?.depositAmount ?? 0)}
+                {!isDepositPayment && " ✓"}
               </Text>
             </View>
             <View style={styles.priceRow}>
               <Text style={[styles.priceLabel, !isDepositPayment && styles.highlightLabel]}>
-                {!isDepositPayment ? "→ Còn lại thanh toán" : "Còn lại khi nhận phòng"} ({100 - depositPct}%)
+                {!isDepositPayment ? "→ Còn lại thanh toán" : "Còn lại khi nhận"} ({100 - depositPct}%)
               </Text>
               <Text style={[styles.priceVal, !isDepositPayment ? styles.remainingVal : styles.mutedVal]}>
-                {fmt(booking.remainingAmount ?? 0)}
+                {fmt(booking?.remainingAmount ?? 0)}
+                {fullyPaid && " ✓"}
               </Text>
             </View>
+
+            {/* Extra Charges */}
+            {extraCharges.length > 0 && (
+              <>
+                <Divider style={{ marginVertical: 10 }} />
+                <View style={styles.extraChargesBox}>
+                  <Text style={styles.extraChargesTitle}>Các khoản phí khác</Text>
+                  {extraCharges.map((charge, idx) => (
+                    <View key={charge.id || idx} style={styles.extraChargeRow}>
+                      <Text style={styles.extraChargeLabel}>{charge.description}</Text>
+                      <Text style={styles.extraChargePrice}>+{fmt(charge.amount)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+
             <Divider style={{ marginVertical: 10 }} />
             <View style={styles.priceRow}>
               <Text style={styles.amountDueLabel}>Thanh toán ngay</Text>
-              <Text style={styles.amountDueVal}>{fmt(amountDue)}</Text>
+              <Text style={styles.amountDueVal}>
+                {fmt(amountDue + (isDepositPayment ? extraCharges.reduce((sum, c) => sum + c.amount, 0) : 0))}
+              </Text>
             </View>
           </View>
         </Card>
@@ -243,6 +318,18 @@ const styles = StyleSheet.create({
   mutedVal: { color: "#94a3b8" },
   amountDueLabel: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
   amountDueVal: { fontSize: 18, fontWeight: "900", color: "#f97316" },
+
+  extraChargesBox: { paddingVertical: 6 },
+  extraChargesTitle: { fontSize: 12, fontWeight: "600", color: "#64748b", marginBottom: 8, textTransform: "uppercase" },
+  extraChargeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, paddingHorizontal: 2 },
+  extraChargeLabel: { fontSize: 13, color: "#475569", fontWeight: "500" },
+  extraChargePrice: { fontSize: 13, fontWeight: "600", color: "#ea580c" },
+
+  experienceBreakdownBox: { paddingVertical: 6, marginBottom: 8 },
+  experiencesBreakdownTitle: { fontSize: 12, fontWeight: "600", color: "#64748b", marginBottom: 8, textTransform: "uppercase" },
+  experienceBreakdownRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, paddingHorizontal: 2 },
+  experienceBreakdownLabel: { fontSize: 13, color: "#475569", fontWeight: "500" },
+  experienceBreakdownPrice: { fontSize: 13, fontWeight: "600", color: "#0891b2" },
 
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 15, fontWeight: "700", color: "#0f172a", marginBottom: 12 },

@@ -85,6 +85,7 @@ export const bookingService = {
     guestsCount: number;
     contactPhone: string;
     specialRequests?: string;
+    promotionId?: string;
   }) {
     const res = await apiClient.post<Record<string, unknown>>(
       apiConfig.endpoints.bookings.create,
@@ -108,11 +109,13 @@ export const bookingService = {
   async modifyBooking(
     id: string,
     payload: {
+      homestayId?: string;
       checkIn?: string;
       checkOut?: string;
       guestsCount?: number;
       contactPhone?: string;
       specialRequests?: string;
+      promotionId?: string;
     },
   ) {
     const res = await apiClient.put<Record<string, unknown>>(
@@ -158,6 +161,7 @@ export const bookingService = {
     checkOut: string;
     guestsCount: number;
     promotionId?: string;
+    experienceIds?: string[];
   }): Promise<number | null> {
     try {
       const res = await apiClient.post<Record<string, unknown>>(
@@ -183,7 +187,9 @@ export const bookingService = {
       );
       return {
         success: Boolean((res as any)?.success ?? true),
-        message: String((res as any)?.message ?? "Đã ghi nhận yêu cầu đặc biệt."),
+        message: String(
+          (res as any)?.message ?? "Đã ghi nhận yêu cầu đặc biệt.",
+        ),
       };
     } catch (e: any) {
       return { success: false, message: e?.message ?? "Đã xảy ra lỗi." };

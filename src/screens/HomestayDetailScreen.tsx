@@ -1,8 +1,10 @@
 import {
   AlertDialog,
   Button,
+  CouponInputModal,
   DatePickerModal,
   Divider,
+  ExperiencePickerModal,
   Header,
   Input,
   LoadingIndicator,
@@ -11,10 +13,12 @@ import { apiClient } from "@/service/api/apiClient";
 import { tokenStorage } from "@/service/auth/tokenStorage";
 import { bookingService } from "@/service/booking/bookingService";
 import { apiConfig } from "@/service/constants/apiConfig";
+import { experienceService } from "@/service/experience/experienceService";
+import { promotionService } from "@/service/promotion/promotionService";
+import type { CouponValidationResponse, Promotion } from "@/service/promotion/promotionService";
 import { publicHomestayService } from "@/service/homestay/publicHomestayService";
 import { wishlistService } from "@/service/wishlist/wishlistService";
-import type { Homestay } from "@/types";
-import { logger } from "@/utils/logger";
+import type { Experience, Homestay } from "@/types";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
@@ -22,6 +26,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Dimensions,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -45,6 +51,28 @@ interface Review {
 
 const { width } = Dimensions.get("window");
 
+// Amenity icon mapping
+const getAmenityIcon = (amenityName: string): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const name = String(amenityName ?? "").toLowerCase();
+  if (name.includes("wifi") || name.includes("internet")) return "wifi";
+  if (name.includes("pool")) return "pool";
+  if (name.includes("gym") || name.includes("fitness")) return "dumbbell";
+  if (name.includes("ac") || name.includes("conditioner")) return "air-conditioner";
+  if (name.includes("tv") || name.includes("television")) return "television";
+  if (name.includes("kitchen")) return "stove";
+  if (name.includes("washer") || name.includes("laundry")) return "washing-machine";
+  if (name.includes("parking")) return "car";
+  if (name.includes("pet")) return "paw";
+  if (name.includes("smoke") || name.includes("smoking")) return "smoke";
+  if (name.includes("bed")) return "bed";
+  if (name.includes("shower") || name.includes("bath")) return "shower-head";
+  if (name.includes("heater") || name.includes("heating")) return "fire";
+  if (name.includes("elevator")) return "elevator-up";
+  if (name.includes("safe")) return "safe";
+  if (name.includes("desk")) return "desk";
+  return "check-circle-outline";
+};
+
 export default function HomestayDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
@@ -67,6 +95,24 @@ export default function HomestayDetailScreen() {
   const [hasSession, setHasSession] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  // Experiences
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [selectedExperiences, setSelectedExperiences] = useState<Experience[]>([]);
+  const [experiencePickerVisible, setExperiencePickerVisible] = useState(false);
+  const [experiencesLoading, setExperiencesLoading] = useState(false);
+
+  // Promotions
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
+  const [promotionsLoading, setPromotionsLoading] = useState(false);
+
+  // Coupon
+  const [couponCode, setCouponCode] = useState("");
+  const [validatedPromotion, setValidatedPromotion] = useState<CouponValidationResponse | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponPickerVisible, setCouponPickerVisible] = useState(false);
+  const [couponValidating, setCouponValidating] = useState(false);
 
   // Validate ID exists
   useEffect(() => {
@@ -133,6 +179,48 @@ export default function HomestayDetailScreen() {
     };
   }, [id]);
 
+  // Load experiences
+  useEffect(() => {
+    let mounted = true;
+    const loadExperiences = async () => {
+      setExperiencesLoading(true);
+      try {
+        const list = await experienceService.getAll();
+        if (mounted) setExperiences(list);
+      } catch (error) {
+        console.warn("Failed to load experiences:", error);
+        if (mounted) setExperiences([]);
+      } finally {
+        if (mounted) setExperiencesLoading(false);
+      }
+    };
+    loadExperiences();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Load promotions
+  useEffect(() => {
+    let mounted = true;
+    const loadPromotions = async () => {
+      setPromotionsLoading(true);
+      try {
+        const list = await promotionService.getActiveForCustomer();
+        if (mounted) setPromotions(list);
+      } catch (error) {
+        console.warn("Failed to load promotions:", error);
+        if (mounted) setPromotions([]);
+      } finally {
+        if (mounted) setPromotionsLoading(false);
+      }
+    };
+    loadPromotions();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -198,6 +286,21 @@ export default function HomestayDetailScreen() {
 
   const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000);
   const totalPrice = item ? item.pricePerNight * nights : 0;
+  const experienceTotal = selectedExperiences.reduce((sum, e) => sum + e.price, 0);
+  const selectedPromotionDiscount =
+    selectedPromotion
+      ? selectedPromotion.discountType === "PERCENTAGE"
+        ? Math.min(
+            Math.round(((totalPrice + experienceTotal) * selectedPromotion.discountPercent) / 100),
+            selectedPromotion.maxDiscountAmount ?? Infinity,
+          )
+        : Math.min(selectedPromotion.discountAmount, totalPrice + experienceTotal)
+      : 0;
+  const manualCouponDiscount = selectedPromotion ? 0 : couponDiscount;
+  const finalPrice = Math.max(
+    0,
+    totalPrice + experienceTotal - selectedPromotionDiscount - manualCouponDiscount,
+  );
 
   const avgRating =
     reviews.length > 0
@@ -215,6 +318,44 @@ export default function HomestayDetailScreen() {
 
   const [bookingCreatedId, setBookingCreatedId] = useState<string | null>(null);
 
+  const handleValidateCoupon = useCallback(
+    async (code: string) => {
+      try {
+        setCouponValidating(true);
+        const totalAmount = totalPrice + experienceTotal;
+        const result = await promotionService.validateCoupon({
+          code,
+          totalAmount,
+        });
+        if (result.isValid && result.discountAmount !== undefined) {
+          setCouponCode(code);
+          setValidatedPromotion(result);
+          setCouponDiscount(result.discountAmount);
+          setSelectedPromotion(null);
+          showToast("Áp dụng mã giảm giá thành công!", "success");
+          return true;
+        } else {
+          showToast(result.message || "Mã giảm giá không hợp lệ", "error");
+          return false;
+        }
+      } catch (error) {
+        console.error("Validate coupon error:", error);
+        showToast("Lỗi khi kiểm tra mã giảm giá", "error");
+        return false;
+      } finally {
+        setCouponValidating(false);
+      }
+    },
+    [totalPrice, experienceTotal]
+  );
+
+  const handleClearCoupon = useCallback(() => {
+    setCouponCode("");
+    setValidatedPromotion(null);
+    setCouponDiscount(0);
+    showToast("Đã xóa mã giảm giá", "info");
+  }, []);
+
   const handleBooking = useCallback(async () => {
     if (!hasSession) {
       showToast("Vui lòng đăng nhập để đặt phòng", "info");
@@ -227,12 +368,30 @@ export default function HomestayDetailScreen() {
     }
     try {
       setBooking(true);
+
+      // Build special requests with experiences (matching FE format)
+      let specialRequests = "";
+      if (selectedExperiences.length > 0) {
+        const experiencesJson = {
+          items: selectedExperiences.map((e) => ({
+            id: e.id,
+            name: e.name,
+            price: e.price,
+          })),
+        };
+        specialRequests = `[EXPERIENCES_JSON]${JSON.stringify(experiencesJson)}`;
+      }
+      const appliedPromotionId =
+        validatedPromotion?.promotionId ?? selectedPromotion?.id;
+
       const res = await bookingService.createBooking({
         homestayId: item.id,
         checkIn: checkInDate.toISOString().split("T")[0],
         checkOut: checkOutDate.toISOString().split("T")[0],
         guestsCount: guestCount,
         contactPhone: phone,
+        specialRequests: specialRequests || undefined,
+        promotionId: appliedPromotionId || undefined,
       });
       if (res.success) {
         // Lưu bookingId để navigate đến PaymentInitiation
@@ -248,7 +407,18 @@ export default function HomestayDetailScreen() {
     } finally {
       setBooking(false);
     }
-  }, [item, checkInDate, checkOutDate, guestCount, phone, hasSession, navigation]);
+  }, [
+    item,
+    checkInDate,
+    checkOutDate,
+    guestCount,
+    phone,
+    selectedExperiences,
+    validatedPromotion?.promotionId,
+    selectedPromotion?.id,
+    hasSession,
+    navigation,
+  ]);
 
   if (loading) {
     return (
@@ -274,6 +444,11 @@ export default function HomestayDetailScreen() {
   const images = item.images?.length ? item.images : ["https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800"];
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
     <SafeAreaView style={styles.container} edges={[]}>
       <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[0]}>
         {/* Sticky Header */}
@@ -396,14 +571,23 @@ export default function HomestayDetailScreen() {
           <>
             <Divider />
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Tiện ích</Text>
+              <View style={styles.amenitiesTitleRow}>
+                <Text style={styles.sectionTitle}>Tiện ích</Text>
+                <View style={styles.amenitiesCountBadge}>
+                  <Text style={styles.amenitiesCountText}>{item.amenities.length}</Text>
+                </View>
+              </View>
               <View style={styles.amenitiesGrid}>
-                {item.amenities.map((a: any, idx: number) => (
-                  <View key={idx} style={styles.amenityChip}>
-                    <MaterialCommunityIcons name="check-circle-outline" size={14} color="#10b981" />
-                    <Text style={styles.amenityText}>{typeof a === "string" ? a : (a?.name ?? String(a))}</Text>
-                  </View>
-                ))}
+                {item.amenities.map((a: any, idx: number) => {
+                  const amenityName = typeof a === "string" ? a : (a?.name ?? String(a));
+                  const amenityIcon = getAmenityIcon(amenityName);
+                  return (
+                    <View key={idx} style={styles.amenityChip}>
+                      <MaterialCommunityIcons name={amenityIcon} size={16} color="#0891b2" />
+                      <Text style={styles.amenityText} numberOfLines={2}>{amenityName}</Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
           </>
@@ -580,6 +764,147 @@ export default function HomestayDetailScreen() {
                 </View>
               </View>
 
+              {/* Experiences Section */}
+              {experiences.length > 0 && (
+                <>
+                  <View style={styles.experiencesHeader}>
+                    <View style={styles.experiencesTitleRow}>
+                      <MaterialCommunityIcons name="spa" size={18} color="#0891b2" />
+                      <Text style={styles.experiencesTitle}>Dịch vụ thêm</Text>
+                    </View>
+                    <Text style={styles.experiencesDesc}>Chọn dịch vụ bổ sung cho chuyến ở của bạn</Text>
+                  </View>
+
+                  {selectedExperiences.length > 0 && (
+                    <View style={styles.selectedExperiencesBox}>
+                      <View style={styles.selectedExperiencesHeader}>
+                        <Text style={styles.selectedExperiencesLabel}>Dịch vụ đã chọn ({selectedExperiences.length})</Text>
+                        <Text style={styles.selectedExperiencesPrice}>
+                          +₫{experienceTotal.toLocaleString("vi-VN")}
+                        </Text>
+                      </View>
+                      <View style={styles.selectedExperiencesList}>
+                        {selectedExperiences.map((exp) => (
+                          <View key={exp.id} style={styles.selectedExperienceItem}>
+                            <MaterialCommunityIcons name="check-circle" size={14} color="#10b981" />
+                            <Text style={styles.selectedExperienceName} numberOfLines={1}>
+                              {exp.name}
+                            </Text>
+                            <Text style={styles.selectedExperiencePrice}>
+                              ₫{exp.price.toLocaleString("vi-VN")}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  <Button
+                    title={`${selectedExperiences.length > 0 ? "Thay đổi" : "Chọn"} dịch vụ (${selectedExperiences.length})`}
+                    onPress={() => setExperiencePickerVisible(true)}
+                    style={styles.experienceBtn}
+                  />
+                </>
+              )}
+
+              {/* Discount/Promotion Section */}
+              <View style={styles.discountSection}>
+                {/* Available Promotions */}
+                <View style={styles.promoSubsection}>
+                  <View style={styles.promoSubsectionHeader}>
+                    <MaterialCommunityIcons name="offer" size={18} color="#059669" />
+                    <Text style={styles.promoSubsectionTitle}>Khuyến mãi sẵn có</Text>
+                    {promotionsLoading && <Text style={styles.loadingBadge}>Đang tải...</Text>}
+                  </View>
+
+                  {promotions.length > 0 ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      scrollEventThrottle={16}
+                      contentContainerStyle={styles.promotionsScroll}
+                    >
+                      {promotions.map((promo) => (
+                        <TouchableOpacity
+                          key={promo.id}
+                          style={[
+                            styles.promotionCard,
+                            selectedPromotion?.id === promo.id && styles.promotionCardSelected
+                          ]}
+                          onPress={() => {
+                            setSelectedPromotion((prev) =>
+                              prev?.id === promo.id ? null : promo,
+                            );
+                            setCouponCode("");
+                            setValidatedPromotion(null);
+                            setCouponDiscount(0);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.promotionCardHeader}>
+                            <Text style={[styles.promotionCode, selectedPromotion?.id === promo.id && styles.promotionCodeSelected]}>
+                              {promo.code ?? promo.name}
+                            </Text>
+                            {selectedPromotion?.id === promo.id && (
+                              <View style={styles.promotionCheckmark}>
+                                <MaterialCommunityIcons name="check" size={14} color="#fff" />
+                              </View>
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.promotionDiscount,
+                              selectedPromotion?.id === promo.id && styles.promotionDiscountSelected,
+                            ]}
+                          >
+                            {promo.discountType === "PERCENTAGE"
+                              ? `Giảm ${promo.discountPercent}%`
+                              : `Giảm ₫${promo.discountAmount.toLocaleString("vi-VN")}`}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <Text style={styles.emptyPromo}>Không có khuyến mãi nào</Text>
+                  )}
+                </View>
+
+                {/* Coupon Code Input */}
+                <View style={styles.couponSubsection}>
+                  <View style={styles.couponSubsectionHeader}>
+                    <MaterialCommunityIcons name="qrcode-scan" size={18} color="#0891b2" />
+                    <Text style={styles.couponSubsectionTitle}>Hoặc nhập mã giảm giá</Text>
+                  </View>
+
+                  {validatedPromotion && couponDiscount > 0 ? (
+                    <View style={styles.couponAppliedBox}>
+                      <View style={styles.couponAppliedHeader}>
+                        <MaterialCommunityIcons name="check-circle" size={18} color="#10b981" />
+                        <View style={styles.couponAppliedInfo}>
+                          <Text style={styles.couponAppliedCode}>{couponCode}</Text>
+                          <Text style={styles.couponAppliedPromo}>{validatedPromotion.name}</Text>
+                        </View>
+                        <TouchableOpacity onPress={handleClearCoupon} style={{ padding: 4 }}>
+                          <MaterialCommunityIcons name="close-circle" size={20} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.couponAppliedBenefit}>
+                        <Text style={styles.couponAppliedBenefitLabel}>Giảm giá:</Text>
+                        <Text style={styles.couponAppliedBenefitPrice}>
+                          -₫{couponDiscount.toLocaleString("vi-VN")}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Button
+                      title="Thêm mã giảm giá"
+                      onPress={() => setCouponPickerVisible(true)}
+                      style={styles.couponBtn}
+                    />
+                  )}
+                </View>
+              </View>
+
               <Input
                 label="Số điện thoại liên hệ"
                 placeholder="Nhập số điện thoại"
@@ -590,7 +915,7 @@ export default function HomestayDetailScreen() {
               />
 
               <Button
-                title={booking ? "Đang đặt phòng..." : `Đặt phòng · ₫${totalPrice.toLocaleString("vi-VN")}`}
+                title={booking ? "Đang đặt phòng..." : `Đặt phòng · ₫${finalPrice.toLocaleString("vi-VN")}`}
                 onPress={handleBooking}
                 loading={booking}
                 disabled={booking}
@@ -600,7 +925,7 @@ export default function HomestayDetailScreen() {
           ) : null}
         </View>
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <DatePickerModal
@@ -632,7 +957,33 @@ export default function HomestayDetailScreen() {
           navigation.navigate("MainTabs" as never, { screen: "Bookings" } as never);
         }}
       />
+
+      <ExperiencePickerModal
+        visible={experiencePickerVisible}
+        experiences={experiences}
+        selectedIds={selectedExperiences.map((e) => e.id)}
+        title="Chọn Dịch Vụ"
+        loading={experiencesLoading}
+        onConfirm={(selected) => {
+          setSelectedExperiences(selected);
+          setExperiencePickerVisible(false);
+        }}
+        onCancel={() => setExperiencePickerVisible(false)}
+      />
+
+      <CouponInputModal
+        visible={couponPickerVisible}
+        couponCode={couponCode}
+        onCodeChange={setCouponCode}
+        onValidate={handleValidateCoupon}
+        validatedPromotion={validatedPromotion}
+        discountAmount={couponDiscount}
+        isValidating={couponValidating}
+        onClear={handleClearCoupon}
+        onClose={() => setCouponPickerVisible(false)}
+      />
     </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -699,13 +1050,17 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, color: "#475569", lineHeight: 22, fontWeight: "500" },
 
   // Amenities
+  // Amenities
+  amenitiesTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  amenitiesCountBadge: { backgroundColor: "#cffafe", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "#2dd4bf" },
+  amenitiesCountText: { fontSize: 12, fontWeight: "700", color: "#0891b2" },
   amenitiesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   amenityChip: {
-    flexDirection: "row", alignItems: "center", gap: 7,
-    backgroundColor: "#f0fdf4", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+    flex: 0.48, flexDirection: "row", alignItems: "flex-start", gap: 8,
+    backgroundColor: "#f0fdf4", paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12,
     borderWidth: 1, borderColor: "#dcfce7",
   },
-  amenityText: { fontSize: 13, color: "#15803d", fontWeight: "600" },
+  amenityText: { fontSize: 12, color: "#059669", fontWeight: "600", flex: 1 },
 
   // Booking
   dateRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
@@ -735,6 +1090,28 @@ const styles = StyleSheet.create({
   },
   guestBookingTitle: { fontSize: 17, fontWeight: "800", color: "#0f172a", textAlign: "center" },
   guestBookingDesc: { fontSize: 13, color: "#64748b", textAlign: "center", lineHeight: 20, fontWeight: "500" },
+
+  // Experiences
+  experiencesHeader: { marginBottom: 12 },
+  experiencesTitleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
+  experiencesTitle: { fontSize: 16, fontWeight: "700", color: "#0f172a" },
+  experiencesDesc: { fontSize: 13, color: "#64748b", fontWeight: "500" },
+  selectedExperiencesBox: {
+    backgroundColor: "#f0f9ff", borderRadius: 12, borderWidth: 1, borderColor: "#cffafe",
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12,
+  },
+  selectedExperiencesHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8,
+  },
+  selectedExperiencesLabel: { fontSize: 12, fontWeight: "600", color: "#0369a1" },
+  selectedExperiencesPrice: { fontSize: 13, fontWeight: "700", color: "#0891b2" },
+  selectedExperiencesList: { gap: 6 },
+  selectedExperienceItem: {
+    flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6,
+  },
+  selectedExperienceName: { flex: 1, fontSize: 13, color: "#0f172a", fontWeight: "500" },
+  selectedExperiencePrice: { fontSize: 12, fontWeight: "600", color: "#0891b2" },
+  experienceBtn: { marginBottom: 18 },
 
   // Reviews Styles
   reviewsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
@@ -784,4 +1161,51 @@ const styles = StyleSheet.create({
   },
   ownerReplyLabel: { fontSize: 11, fontWeight: "700", color: "#16a34a", marginBottom: 4 },
   ownerReplyText: { fontSize: 12, color: "#166534", lineHeight: 18, fontWeight: "500" },
+
+  // Discount/Promotion Styles
+  discountSection: { backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 18, marginVertical: 12, gap: 20 },
+
+  // Promotions Subsection
+  promoSubsection: { gap: 12 },
+  promoSubsectionHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  promoSubsectionTitle: { fontSize: 15, fontWeight: "700", color: "#059669", flex: 1 },
+  loadingBadge: { fontSize: 11, color: "#94a3b8", fontWeight: "500", backgroundColor: "#f1f5f9", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  promotionsScroll: { gap: 10, paddingVertical: 8 },
+  promotionCard: {
+    backgroundColor: "#ecf9ff", borderRadius: 12, borderWidth: 2, borderColor: "#cffafe",
+    paddingHorizontal: 14, paddingVertical: 12, minWidth: 140,
+  },
+  promotionCardSelected: {
+    backgroundColor: "#0891b2", borderColor: "#0891b2"
+  },
+  promotionCardHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    gap: 8, marginBottom: 6,
+  },
+  promotionCheckmark: {
+    backgroundColor: "#10b981", borderRadius: 10, width: 20, height: 20,
+    justifyContent: "center", alignItems: "center", flexShrink: 0,
+  },
+  promotionCode: { fontSize: 13, fontWeight: "700", color: "#0f172a", flex: 1 },
+  promotionCodeSelected: { color: "#fff" },
+  promotionDiscount: { fontSize: 12, fontWeight: "600", color: "#0369a1" },
+  promotionDiscountSelected: { color: "#e0f2fe" },
+  emptyPromo: { fontSize: 13, color: "#94a3b8", fontWeight: "500", textAlign: "center", paddingVertical: 20 },
+
+  // Coupon Subsection
+  couponSubsection: { gap: 12 },
+  couponSubsectionHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  couponSubsectionTitle: { fontSize: 15, fontWeight: "700", color: "#0891b2", flex: 1 },
+  couponAppliedBox: {
+    backgroundColor: "#f0fdf4", borderRadius: 14, borderWidth: 2, borderColor: "#bbf7d0",
+    paddingHorizontal: 14, paddingVertical: 14, gap: 12
+  },
+  couponAppliedHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  couponAppliedInfo: { flex: 1, gap: 4 },
+  couponAppliedCode: { fontSize: 14, fontWeight: "700", color: "#059669" },
+  couponAppliedPromo: { fontSize: 12, color: "#047857", fontWeight: "500" },
+  couponAppliedBenefit: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  couponAppliedBenefitLabel: { fontSize: 13, color: "#059669", fontWeight: "600" },
+  couponAppliedBenefitPrice: { fontSize: 15, fontWeight: "700", color: "#10b981" },
+  couponBtn: { marginBottom: 0 },
 });

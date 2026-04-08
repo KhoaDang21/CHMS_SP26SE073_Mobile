@@ -2,18 +2,18 @@
  * Customer (mobile) API paths — aligned with FE `src/config/apiConfig.ts`
  */
 export const apiConfig = {
-  baseURL: "http://163.227.230.54:8088",
+  baseURL: "https://api.chms.io.vn",
   timeout: 15000,
   endpoints: {
     auth: {
-      login: "/api/Auth/login",
-      register: "/api/Auth/register",
-      logout: "/api/Auth/logout",
-      forgotPassword: "/api/Auth/forgot-password",
-      resetPassword: "/api/Auth/reset-password",
-      refreshToken: "/api/Auth/refresh-token",
-      verifyOtp: "/api/Auth/verify-otp",
-      googleLogin: "/api/Auth/google-login",
+      login: "/api/auth/login",
+      register: "/api/auth/register",
+      logout: "/api/auth/logout",
+      forgotPassword: "/api/auth/forgot-password",
+      resetPassword: "/api/auth/reset-password",
+      refreshToken: "/api/auth/refresh-token",
+      verifyOtp: "/api/auth/verify-otp",
+      googleLogin: "/api/auth/google-login",
     },
     homestays: {
       list: "/api/homestays",
@@ -91,6 +91,16 @@ export const apiConfig = {
     },
     coupons: {
       validate: "/api/coupons/validate",
+    },
+    experiences: {
+      list: "/api/experiences",
+      listByCategory: (category: string) =>
+        `/api/experiences?category=${category}`,
+      detail: (id: string) => `/api/experiences/${id}`,
+    },
+    extraCharges: {
+      byBooking: (bookingId: string) =>
+        `/api/extra-charges/booking/${bookingId}`,
     },
   },
 };

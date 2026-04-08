@@ -24,6 +24,32 @@ export interface Homestay {
   depositPercentage?: number;
   averageRating?: number;
   reviewCount?: number;
+  facilities?: string[];
+  rules?: string[];
+}
+
+export interface Promotion {
+  id: string;
+  code?: string;
+  name: string;
+  description?: string;
+  discountType: "PERCENTAGE" | "FIXED";
+  discountValue: number;
+  maxDiscount?: number;
+  minBookingPrice?: number;
+  startDate: string;
+  endDate: string;
+  isActive?: boolean;
+  usageLimit?: number;
+  usedCount?: number;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  promotion: Promotion;
+  discountAmount?: number;
+  originalPrice?: number;
 }
 
 export type BookingStatus =
@@ -34,6 +60,23 @@ export type BookingStatus =
   | "REJECTED"
   | "CHECKED_IN";
 
+export interface Experience {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  category?: string;
+  image?: string;
+}
+
+export interface ExtraCharge {
+  id: string;
+  description: string;
+  amount: number;
+  chargeType?: string;
+  appliedDate?: string;
+}
+
 export interface Booking {
   id: string;
   homestayId: string;
@@ -42,12 +85,23 @@ export interface Booking {
   checkOut: string;
   guestsCount: number;
   totalPrice?: number;
+  basePrice?: number;
   depositAmount?: number;
   remainingAmount?: number;
   depositPercentage?: number;
   paymentStatus?: "UNPAID" | "DEPOSIT_PAID" | "FULLY_PAID";
   status: BookingStatus;
   contactPhone?: string;
+  contactEmail?: string;
   specialRequests?: string;
+  experienceData?: string; // JSON string containing selected experiences
+  experiences?: Experience[];
+  extraCharges?: ExtraCharge[];
+  couponCode?: string;
+  promotionId?: string;
+  discountAmount?: number;
   createdAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  cancellationRefundAmount?: number;
 }
