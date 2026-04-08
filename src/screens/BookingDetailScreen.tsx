@@ -69,9 +69,9 @@ export default function BookingDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { bookingId } = route.params ?? {};
+  const { bookingId, booking: initialBooking } = route.params ?? {};
 
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [booking, setBooking] = useState<Booking | null>(initialBooking ?? null);
   const [homestay, setHomestay] = useState<any>(null);
   const [policy, setPolicy] = useState<any>(null);
   const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
@@ -82,6 +82,10 @@ export default function BookingDetailScreen() {
   const [activeImg, setActiveImg] = useState(0);
 
   const load = useCallback(async () => {
+    if (!bookingId) {
+      setLoading(false);
+      return;
+    }
     try {
       const [detail, policyData] = await Promise.all([
         bookingService.getBookingDetail(bookingId),
@@ -101,9 +105,12 @@ export default function BookingDetailScreen() {
         reviewService.getMyReviews().then((reviews) => {
           setHasReview(reviews.some((r) => r.bookingReference === detail.id));
         }).catch(() => { });
+      } else if (!booking) {
+        // getBookingDetail trả về null nhưng không có initialBooking → hiện lỗi
+        showToast("Không thể tải chi tiết đặt phòng", "error");
       }
     } catch {
-      showToast("Không thể tải chi tiết đặt phòng", "error");
+      if (!booking) showToast("Không thể tải chi tiết đặt phòng", "error");
     } finally {
       setLoading(false);
     }
@@ -132,7 +139,7 @@ export default function BookingDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header showBack title="Chi tiết đặt phòng" />
         <LoadingIndicator />
       </SafeAreaView>
@@ -141,7 +148,7 @@ export default function BookingDetailScreen() {
 
   if (!booking) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header showBack title="Chi tiết đặt phòng" />
         <View style={styles.errorBox}>
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#ef4444" />
@@ -164,6 +171,7 @@ export default function BookingDetailScreen() {
   const isCompleted = booking.status === "COMPLETED";
   const depositPaid = ["DEPOSIT_PAID", "FULLY_PAID"].includes(booking.paymentStatus ?? "");
   const fullyPaid = booking.paymentStatus === "FULLY_PAID";
+  const resolvedHomestayId = homestay?.id || booking.homestayId;
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
@@ -432,7 +440,7 @@ export default function BookingDetailScreen() {
           {(booking.status === "PENDING" || (booking.status === "CONFIRMED" && booking.paymentStatus === "DEPOSIT_PAID")) && (
             <TouchableOpacity
               style={styles.payBtn}
-              onPress={() => navigation.navigate("PaymentInitiation", { bookingId: booking.id })}
+              onPress={() => navigation.navigate("PaymentInitiation", { bookingId: booking.id, booking })}
             >
               <LinearGradient colors={["#1d4ed8", "#0891b2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.payBtnGradient}>
                 <MaterialCommunityIcons name="credit-card-outline" size={18} color="#fff" />
@@ -453,7 +461,7 @@ export default function BookingDetailScreen() {
                 variant="outline"
                 size="large"
                 style={{ flex: 1 }}
-                onPress={() => navigation.navigate("BookingEdit", { bookingId: booking.id })}
+                onPress={() => navigation.navigate("BookingEdit", { bookingId: booking.id, booking })}
               />
               <Button
                 title="Hủy đặt phòng"
@@ -482,15 +490,20 @@ export default function BookingDetailScreen() {
           )}
 
           {/* View homestay */}
-          {booking.homestayId && (
+          {resolvedHomestayId ? (
             <Button
               title="Xem homestay"
               variant="outline"
               size="large"
               style={{ marginTop: 8 }}
-              onPress={() => navigation.navigate("HomestayDetail", { id: booking.homestayId })}
+              onPress={() =>
+                navigation.navigate("HomestayDetail", {
+                  id: resolvedHomestayId,
+                  homestay: homestay ?? undefined,
+                })
+              }
             />
-          )}
+          ) : null}
         </View>
 
         <View style={{ height: 24 }} />

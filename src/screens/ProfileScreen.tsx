@@ -110,7 +110,7 @@ export default function ProfileScreen({ onLogout }: { onLogout?: () => void }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header title="Hồ Sơ" />
         <LoadingIndicator />
       </SafeAreaView>
@@ -118,7 +118,7 @@ export default function ProfileScreen({ onLogout }: { onLogout?: () => void }) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
       <Header title="Hồ Sơ" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 

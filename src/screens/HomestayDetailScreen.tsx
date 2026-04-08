@@ -80,6 +80,7 @@ export default function HomestayDetailScreen() {
   const id = route.params?.id as string;
   const initialHomestay = route.params?.homestay as Homestay | undefined;
   const [item, setItem] = useState<Homestay | null>(initialHomestay || null);
+  const effectiveHomestayId = id || initialHomestay?.id || item?.id || "";
   const [loading, setLoading] = useState(!initialHomestay);
   const [booking, setBooking] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -116,16 +117,16 @@ export default function HomestayDetailScreen() {
 
   // Validate ID exists
   useEffect(() => {
-    if (!id && !initialHomestay) {
+    if (!effectiveHomestayId && !initialHomestay) {
       showToast("ID căn nhà không hợp lệ", "error");
     }
-  }, [id, initialHomestay]);
+  }, [effectiveHomestayId, initialHomestay]);
 
   useEffect(() => {
     const load = async () => {
-      if (!id) return;
+      if (!effectiveHomestayId) return;
       try {
-        const data = await publicHomestayService.getById(id);
+        const data = await publicHomestayService.getById(effectiveHomestayId);
         if (data) {
           setItem(data);
         } else if (!initialHomestay) {
@@ -142,16 +143,18 @@ export default function HomestayDetailScreen() {
       }
     };
     load();
-  }, [id, initialHomestay]);
+  }, [effectiveHomestayId, initialHomestay]);
 
   // Fetch reviews
   useEffect(() => {
-    if (!id) return;
+    if (!effectiveHomestayId) return;
     let mounted = true;
     const loadReviews = async () => {
       setReviewsLoading(true);
       try {
-        const res = await apiClient.get<any>(apiConfig.endpoints.publicHomestays.reviews(id));
+        const res = await apiClient.get<any>(
+          apiConfig.endpoints.publicHomestays.reviews(effectiveHomestayId),
+        );
         if (!mounted) return;
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
         const mapped: Review[] = list.map((r: any) => ({
@@ -177,7 +180,7 @@ export default function HomestayDetailScreen() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [effectiveHomestayId]);
 
   // Load experiences
   useEffect(() => {
@@ -231,7 +234,8 @@ export default function HomestayDetailScreen() {
         if (token) {
           try {
             const list = await wishlistService.getMyWishlist();
-            if (!cancelled) setIsFavorite(list.some((h) => h.id === id));
+            if (!cancelled)
+              setIsFavorite(list.some((h) => h.id === effectiveHomestayId));
           } catch {
             if (!cancelled) setIsFavorite(false);
           }
@@ -242,7 +246,7 @@ export default function HomestayDetailScreen() {
       return () => {
         cancelled = true;
       };
-    }, [id]),
+    }, [effectiveHomestayId]),
   );
 
   const handleWishlistToggle = useCallback(async () => {
@@ -254,18 +258,23 @@ export default function HomestayDetailScreen() {
     const prev = isFavorite;
     setIsFavorite(!prev);
     try {
+      if (!effectiveHomestayId) {
+        showToast("Không tìm thấy homestay để cập nhật yêu thích", "error");
+        setIsFavorite(prev);
+        return;
+      }
       if (prev) {
-        await wishlistService.remove(id);
+        await wishlistService.remove(effectiveHomestayId);
         showToast("Đã xóa khỏi yêu thích", "info");
       } else {
-        await wishlistService.add(id);
+        await wishlistService.add(effectiveHomestayId);
         showToast("Đã thêm vào yêu thích", "success");
       }
     } catch {
       setIsFavorite(prev);
       showToast("Không thể cập nhật yêu thích", "error");
     }
-  }, [id, isFavorite]);
+  }, [effectiveHomestayId, isFavorite, hasSession, navigation]);
 
   const handleConfirmDate = (date: Date) => {
     if (activePicker === "checkIn") {

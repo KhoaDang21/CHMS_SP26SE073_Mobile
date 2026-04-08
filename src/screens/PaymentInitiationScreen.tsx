@@ -28,7 +28,7 @@ export default function PaymentInitiationScreen() {
   const navigation = useNavigation<any>();
   const bookingId = route.params?.bookingId as string;
 
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [booking, setBooking] = useState<Booking | null>(route.params?.booking ?? null);
   const [homestay, setHomestay] = useState<any>(null);
   const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +96,7 @@ export default function PaymentInitiationScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header showBack title="Thanh Toán" />
         <LoadingIndicator />
       </SafeAreaView>
@@ -105,7 +105,7 @@ export default function PaymentInitiationScreen() {
 
   if (!booking) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header showBack title="Thanh Toán" />
         <View style={styles.errorBox}>
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#ef4444" />
@@ -116,7 +116,7 @@ export default function PaymentInitiationScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
       <Header showBack title={paymentLabel} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
