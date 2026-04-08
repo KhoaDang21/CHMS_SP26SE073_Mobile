@@ -142,7 +142,7 @@ export default function ChatScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={["bottom"]}>
                 <Header title="AI Chat" showBack={false} />
                 <LoadingIndicator />
             </SafeAreaView>
@@ -150,7 +150,7 @@ export default function ChatScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={["top", "right", "left", "bottom"]}>
+        <SafeAreaView style={styles.container} edges={["bottom"]}>
             <Header title="AI Chat - Trợ Lý Booking" showBack={false} />
 
             <FlatList

@@ -32,7 +32,7 @@ export default function BookingEditScreen() {
     const navigation = useNavigation<any>();
     const bookingId = route.params?.bookingId as string;
 
-    const [booking, setBooking] = useState<Booking | null>(null);
+    const [booking, setBooking] = useState<Booking | null>(route.params?.booking ?? null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activePicker, setActivePicker] = useState<"checkIn" | "checkOut" | null>(null);
@@ -48,18 +48,28 @@ export default function BookingEditScreen() {
         const load = async () => {
             try {
                 const data = await bookingService.getBookingDetail(bookingId);
-                if (data) {
-                    setBooking(data);
-                    setCheckInDate(new Date(data.checkIn));
-                    setCheckOutDate(new Date(data.checkOut));
-                    setGuestCount(data.guestsCount);
-                    setPhone(data.contactPhone || "");
-                    setSpecialRequests(data.specialRequests || "");
+                const resolved = data ?? booking; // fallback về params nếu API fail
+                if (resolved) {
+                    setBooking(resolved);
+                    setCheckInDate(new Date(resolved.checkIn));
+                    setCheckOutDate(new Date(resolved.checkOut));
+                    setGuestCount(resolved.guestsCount);
+                    setPhone(resolved.contactPhone || "");
+                    setSpecialRequests(resolved.specialRequests || "");
                 }
                 const policyData = await bookingService.getCancellationPolicy(bookingId);
                 if (policyData) setPolicy(policyData);
             } catch {
-                showToast("Không thể tải chi tiết đặt phòng", "error");
+                // nếu API fail nhưng có booking từ params thì vẫn dùng được
+                if (booking) {
+                    setCheckInDate(new Date(booking.checkIn));
+                    setCheckOutDate(new Date(booking.checkOut));
+                    setGuestCount(booking.guestsCount);
+                    setPhone(booking.contactPhone || "");
+                    setSpecialRequests(booking.specialRequests || "");
+                } else {
+                    showToast("Không thể tải chi tiết đặt phòng", "error");
+                }
             } finally {
                 setLoading(false);
             }
@@ -95,6 +105,7 @@ export default function BookingEditScreen() {
         try {
             setSaving(true);
             const res = await bookingService.modifyBooking(bookingId, {
+                homestayId: booking.homestayId,
                 checkIn: checkInDate.toISOString().split("T")[0],
                 checkOut: checkOutDate.toISOString().split("T")[0],
                 guestsCount: guestCount,
@@ -137,7 +148,7 @@ export default function BookingEditScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={["bottom"]}>
                 <Header showBack title="Chỉnh Sửa Đặt Phòng" />
                 <LoadingIndicator />
             </SafeAreaView>
@@ -146,7 +157,7 @@ export default function BookingEditScreen() {
 
     if (!booking || booking.status !== "PENDING") {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={["bottom"]}>
                 <Header showBack title="Chỉnh Sửa Đặt Phòng" />
                 <View style={styles.errorContainer}>
                     <MaterialCommunityIcons name="alert-circle-outline" size={56} color="#ef4444" />
@@ -163,7 +174,7 @@ export default function BookingEditScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={["bottom"]}>
             <Header showBack title="Chỉnh Sửa Đặt Phòng" />
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
                 <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

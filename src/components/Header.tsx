@@ -11,6 +11,7 @@ import {
     Feather,
 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface HeaderProps {
     title?: string;
@@ -29,9 +30,10 @@ export const Header: React.FC<HeaderProps> = ({
     style,
 }) => {
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
 
     return (
-        <View style={[styles.header, style]}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }, style]}>
             <View style={styles.leftSection}>
                 {showBack && (
                     <TouchableOpacity
@@ -151,7 +153,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingBottom: 12,
         backgroundColor: "#fff",
         borderBottomWidth: 1,
         borderBottomColor: "#e2e8f0",

@@ -13,9 +13,22 @@ const normalizeStatus = (raw: unknown): BookingStatus => {
 };
 
 const mapBooking = (item: Record<string, unknown>): Booking => ({
-  id: String(item.id ?? item.Id ?? ""),
-  homestayId: String(item.homestayId ?? item.HomestayId ?? ""),
-  homestayName: (item.homestayName ?? item.HomestayName) as string | undefined,
+  id: String(item.id ?? item.Id ?? item.bookingId ?? item.BookingId ?? ""),
+  homestayId: String(
+    item.homestayId ??
+      item.HomestayId ??
+      (item.homestay as Record<string, unknown> | undefined)?.id ??
+      (item.homestay as Record<string, unknown> | undefined)?.Id ??
+      (item.homestayDetail as Record<string, unknown> | undefined)?.id ??
+      (item.homestayDetail as Record<string, unknown> | undefined)?.Id ??
+      "",
+  ),
+  homestayName: (item.homestayName ??
+    item.HomestayName ??
+    (item.homestay as Record<string, unknown> | undefined)?.name ??
+    (item.homestay as Record<string, unknown> | undefined)?.Name) as
+    | string
+    | undefined,
   checkIn: String(item.checkIn ?? item.CheckIn ?? ""),
   checkOut: String(item.checkOut ?? item.CheckOut ?? ""),
   guestsCount: Number(item.guestsCount ?? item.GuestsCount ?? 0),
@@ -45,16 +58,14 @@ export const bookingService = {
       const res = await apiClient.get<unknown>(
         apiConfig.endpoints.bookings.list,
       );
-      // Đồng bộ với FE web: check response.data là array, hoặc response là array
-      // Cũng handle paged response { data: { items: [...] } }
       const r = res as any;
+      // Handle cả camelCase (data) và PascalCase (Data) từ BE
       let rawList: any[] = [];
-      if (Array.isArray(r?.data)) {
-        rawList = r.data;
-      } else if (Array.isArray(r?.data?.items)) {
-        rawList = r.data.items;
-      } else if (Array.isArray(r?.data?.Items)) {
-        rawList = r.data.Items;
+      const dataField = r?.data ?? r?.Data;
+      if (Array.isArray(dataField)) {
+        rawList = dataField;
+      } else if (Array.isArray(dataField?.items ?? dataField?.Items)) {
+        rawList = dataField?.items ?? dataField?.Items;
       } else if (Array.isArray(r)) {
         rawList = r;
       }
@@ -70,9 +81,11 @@ export const bookingService = {
         apiConfig.endpoints.bookings.detail(id),
       );
       const r = res as Record<string, unknown>;
-      const raw = (r?.data ?? r) as Record<string, unknown>;
-      if (!raw?.id && !raw?.Id) return null;
-      return mapBooking(raw);
+      // Handle cả camelCase (data) và PascalCase (Data) từ BE
+      const raw = (r?.data ?? r?.Data ?? r) as Record<string, unknown>;
+      const mapped = mapBooking(raw);
+      if (!mapped.id) return null;
+      return mapped;
     } catch {
       return null;
     }
@@ -85,6 +98,7 @@ export const bookingService = {
     guestsCount: number;
     contactPhone: string;
     specialRequests?: string;
+    promotionId?: string;
   }) {
     const res = await apiClient.post<Record<string, unknown>>(
       apiConfig.endpoints.bookings.create,
@@ -108,11 +122,13 @@ export const bookingService = {
   async modifyBooking(
     id: string,
     payload: {
+      homestayId?: string;
       checkIn?: string;
       checkOut?: string;
       guestsCount?: number;
       contactPhone?: string;
       specialRequests?: string;
+      promotionId?: string;
     },
   ) {
     const res = await apiClient.put<Record<string, unknown>>(
@@ -158,6 +174,7 @@ export const bookingService = {
     checkOut: string;
     guestsCount: number;
     promotionId?: string;
+    experienceIds?: string[];
   }): Promise<number | null> {
     try {
       const res = await apiClient.post<Record<string, unknown>>(
@@ -183,7 +200,9 @@ export const bookingService = {
       );
       return {
         success: Boolean((res as any)?.success ?? true),
-        message: String((res as any)?.message ?? "Đã ghi nhận yêu cầu đặc biệt."),
+        message: String(
+          (res as any)?.message ?? "Đã ghi nhận yêu cầu đặc biệt.",
+        ),
       };
     } catch (e: any) {
       return { success: false, message: e?.message ?? "Đã xảy ra lỗi." };

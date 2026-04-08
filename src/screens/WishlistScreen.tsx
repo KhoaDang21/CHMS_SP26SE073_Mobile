@@ -86,7 +86,7 @@ export default function WishlistScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header title="Yêu Thích" />
         <LoadingIndicator />
       </SafeAreaView>
@@ -193,7 +193,7 @@ export default function WishlistScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
       <Header title="Yêu Thích" />
       <FlatList
         data={items}

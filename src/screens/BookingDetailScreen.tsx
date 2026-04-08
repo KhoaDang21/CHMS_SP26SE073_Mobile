@@ -1,8 +1,9 @@
 import { AlertDialog, Button, Divider, Header, LoadingIndicator } from "@/components";
 import { bookingService } from "@/service/booking/bookingService";
+import { extraChargeService } from "@/service/extraCharge/extraChargeService";
 import { publicHomestayService } from "@/service/homestay/publicHomestayService";
 import { reviewService } from "@/service/review/reviewService";
-import type { Booking } from "@/types";
+import type { Booking, ExtraCharge } from "@/types";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -22,18 +23,18 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 const { width } = Dimensions.get("window");
 
 const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
-  PENDING:    { color: "#d97706", bg: "#fef3c7", label: "Chờ thanh toán cọc" },
-  CONFIRMED:  { color: "#059669", bg: "#d1fae5", label: "Đã xác nhận" },
+  PENDING: { color: "#d97706", bg: "#fef3c7", label: "Chờ thanh toán cọc" },
+  CONFIRMED: { color: "#059669", bg: "#d1fae5", label: "Đã xác nhận" },
   CHECKED_IN: { color: "#2563eb", bg: "#dbeafe", label: "Đang lưu trú" },
-  COMPLETED:  { color: "#0891b2", bg: "#cffafe", label: "Hoàn thành" },
-  CANCELLED:  { color: "#dc2626", bg: "#fee2e2", label: "Đã hủy" },
-  REJECTED:   { color: "#dc2626", bg: "#fee2e2", label: "Bị từ chối" },
+  COMPLETED: { color: "#0891b2", bg: "#cffafe", label: "Hoàn thành" },
+  CANCELLED: { color: "#dc2626", bg: "#fee2e2", label: "Đã hủy" },
+  REJECTED: { color: "#dc2626", bg: "#fee2e2", label: "Bị từ chối" },
 };
 
 const PAYMENT_CFG: Record<string, { color: string; label: string }> = {
-  UNPAID:       { color: "#d97706", label: "Chưa thanh toán" },
+  UNPAID: { color: "#d97706", label: "Chưa thanh toán" },
   DEPOSIT_PAID: { color: "#2563eb", label: "Đã cọc" },
-  FULLY_PAID:   { color: "#059669", label: "Đã thanh toán đủ" },
+  FULLY_PAID: { color: "#059669", label: "Đã thanh toán đủ" },
 };
 
 function InfoRow({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) {
@@ -68,11 +69,12 @@ export default function BookingDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { bookingId } = route.params ?? {};
+  const { bookingId, booking: initialBooking } = route.params ?? {};
 
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [booking, setBooking] = useState<Booking | null>(initialBooking ?? null);
   const [homestay, setHomestay] = useState<any>(null);
   const [policy, setPolicy] = useState<any>(null);
+  const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
   const [hasReview, setHasReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cancelDialog, setCancelDialog] = useState(false);
@@ -80,6 +82,10 @@ export default function BookingDetailScreen() {
   const [activeImg, setActiveImg] = useState(0);
 
   const load = useCallback(async () => {
+    if (!bookingId) {
+      setLoading(false);
+      return;
+    }
     try {
       const [detail, policyData] = await Promise.all([
         bookingService.getBookingDetail(bookingId),
@@ -88,17 +94,23 @@ export default function BookingDetailScreen() {
       if (detail) {
         setBooking(detail);
         setPolicy(policyData);
+        // Load extra charges
+        const charges = await extraChargeService.getByBooking(detail.id).catch(() => []);
+        setExtraCharges(charges);
         // Load homestay detail
         if (detail.homestayId) {
-          publicHomestayService.getById(detail.homestayId).then(setHomestay).catch(() => {});
+          publicHomestayService.getById(detail.homestayId).then(setHomestay).catch(() => { });
         }
         // Check review
         reviewService.getMyReviews().then((reviews) => {
           setHasReview(reviews.some((r) => r.bookingReference === detail.id));
-        }).catch(() => {});
+        }).catch(() => { });
+      } else if (!booking) {
+        // getBookingDetail trả về null nhưng không có initialBooking → hiện lỗi
+        showToast("Không thể tải chi tiết đặt phòng", "error");
       }
     } catch {
-      showToast("Không thể tải chi tiết đặt phòng", "error");
+      if (!booking) showToast("Không thể tải chi tiết đặt phòng", "error");
     } finally {
       setLoading(false);
     }
@@ -127,7 +139,7 @@ export default function BookingDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header showBack title="Chi tiết đặt phòng" />
         <LoadingIndicator />
       </SafeAreaView>
@@ -136,7 +148,7 @@ export default function BookingDetailScreen() {
 
   if (!booking) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header showBack title="Chi tiết đặt phòng" />
         <View style={styles.errorBox}>
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#ef4444" />
@@ -153,12 +165,13 @@ export default function BookingDetailScreen() {
   const fallbackImg = "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800";
 
   // Timeline logic
-  const isPending   = booking.status === "PENDING";
+  const isPending = booking.status === "PENDING";
   const isConfirmed = ["CONFIRMED", "CHECKED_IN", "COMPLETED"].includes(booking.status);
   const isCheckedIn = ["CHECKED_IN", "COMPLETED"].includes(booking.status);
   const isCompleted = booking.status === "COMPLETED";
   const depositPaid = ["DEPOSIT_PAID", "FULLY_PAID"].includes(booking.paymentStatus ?? "");
-  const fullyPaid   = booking.paymentStatus === "FULLY_PAID";
+  const fullyPaid = booking.paymentStatus === "FULLY_PAID";
+  const resolvedHomestayId = homestay?.id || booking.homestayId;
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
@@ -206,10 +219,10 @@ export default function BookingDetailScreen() {
               <MaterialCommunityIcons
                 name={
                   booking.status === "PENDING" ? "clock-outline" :
-                  booking.status === "CONFIRMED" ? "check-circle-outline" :
-                  booking.status === "CHECKED_IN" ? "home-account" :
-                  booking.status === "COMPLETED" ? "check-all" :
-                  "close-circle-outline"
+                    booking.status === "CONFIRMED" ? "check-circle-outline" :
+                      booking.status === "CHECKED_IN" ? "home-account" :
+                        booking.status === "COMPLETED" ? "check-all" :
+                          "close-circle-outline"
                 }
                 size={20}
                 color={statusCfg.color}
@@ -343,6 +356,26 @@ export default function BookingDetailScreen() {
                 </View>
               </>
             )}
+            {extraCharges.length > 0 && (
+              <>
+                <Divider style={{ marginVertical: 8 }} />
+                <View style={styles.extraChargesSection}>
+                  <Text style={styles.extraChargesSectionTitle}>Các khoản phí khác</Text>
+                  {extraCharges.map((charge, idx) => (
+                    <View key={charge.id || idx} style={styles.extraChargeRow}>
+                      <Text style={styles.extraChargeLabel}>{charge.description}</Text>
+                      <Text style={styles.extraChargeValue}>+₫{charge.amount.toLocaleString("vi-VN")}</Text>
+                    </View>
+                  ))}
+                  <View style={styles.extraChargesTotalRow}>
+                    <Text style={styles.extraChargesTotalLabel}>Tổng phí khác</Text>
+                    <Text style={styles.extraChargesTotalValue}>
+                      +₫{extraCharges.reduce((sum, c) => sum + c.amount, 0).toLocaleString("vi-VN")}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
             {typeof booking.remainingAmount === "number" && booking.remainingAmount > 0 && (
               <>
                 <Divider style={{ marginVertical: 8 }} />
@@ -407,7 +440,7 @@ export default function BookingDetailScreen() {
           {(booking.status === "PENDING" || (booking.status === "CONFIRMED" && booking.paymentStatus === "DEPOSIT_PAID")) && (
             <TouchableOpacity
               style={styles.payBtn}
-              onPress={() => navigation.navigate("PaymentInitiation", { bookingId: booking.id })}
+              onPress={() => navigation.navigate("PaymentInitiation", { bookingId: booking.id, booking })}
             >
               <LinearGradient colors={["#1d4ed8", "#0891b2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.payBtnGradient}>
                 <MaterialCommunityIcons name="credit-card-outline" size={18} color="#fff" />
@@ -428,7 +461,7 @@ export default function BookingDetailScreen() {
                 variant="outline"
                 size="large"
                 style={{ flex: 1 }}
-                onPress={() => navigation.navigate("BookingEdit", { bookingId: booking.id })}
+                onPress={() => navigation.navigate("BookingEdit", { bookingId: booking.id, booking })}
               />
               <Button
                 title="Hủy đặt phòng"
@@ -457,15 +490,20 @@ export default function BookingDetailScreen() {
           )}
 
           {/* View homestay */}
-          {booking.homestayId && (
+          {resolvedHomestayId ? (
             <Button
               title="Xem homestay"
               variant="outline"
               size="large"
               style={{ marginTop: 8 }}
-              onPress={() => navigation.navigate("HomestayDetail", { id: booking.homestayId })}
+              onPress={() =>
+                navigation.navigate("HomestayDetail", {
+                  id: resolvedHomestayId,
+                  homestay: homestay ?? undefined,
+                })
+              }
             />
-          )}
+          ) : null}
         </View>
 
         <View style={{ height: 24 }} />
@@ -543,6 +581,15 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   priceRowLabel: { fontSize: 13, color: "#64748b" },
   priceRowValue: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
+
+  extraChargesSection: { marginTop: 4 },
+  extraChargesSectionTitle: { fontSize: 12, fontWeight: "600", color: "#64748b", marginBottom: 8, textTransform: "uppercase" },
+  extraChargeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, paddingLeft: 4 },
+  extraChargeLabel: { fontSize: 12, color: "#475569", fontWeight: "500" },
+  extraChargeValue: { fontSize: 12, fontWeight: "600", color: "#ea580c" },
+  extraChargesTotalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#e2e8f0" },
+  extraChargesTotalLabel: { fontSize: 13, fontWeight: "600", color: "#475569" },
+  extraChargesTotalValue: { fontSize: 13, fontWeight: "700", color: "#ea580c" },
 
   timelineCard: { backgroundColor: "#f8fafc", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "#e2e8f0" },
   timelineStep: { flexDirection: "row", alignItems: "flex-start", gap: 12 },

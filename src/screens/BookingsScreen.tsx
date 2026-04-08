@@ -110,7 +110,7 @@ export default function BookingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
         <Header title="Đặt Phòng" />
         <LoadingIndicator />
       </SafeAreaView>
@@ -123,7 +123,7 @@ export default function BookingsScreen() {
     const hasReview = reviewedBookings.has(item.id);
 
     return (
-      <Card style={styles.bookingCard} onPress={() => navigation.navigate("BookingDetail", { bookingId: item.id })}>
+      <Card style={styles.bookingCard} onPress={() => navigation.navigate("BookingDetail", { bookingId: item.id, booking: item })}>
         {/* Colored header bar */}
         <View style={[styles.cardHeaderBar, { backgroundColor: meta.color }]}>
           <View style={styles.cardHeaderLeft}>
@@ -190,11 +190,17 @@ export default function BookingsScreen() {
           {/* Actions for PENDING */}
           {item.status === "PENDING" && (
             <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.actionBtn, styles.btnPrimary]} onPress={() => navigation.navigate("PaymentInitiation", { bookingId: item.id })}>
+              <TouchableOpacity style={[styles.actionBtn, styles.btnPrimary]} onPress={() => navigation.navigate("PaymentInitiation", { bookingId: item.id, booking: item })}>
                 <MaterialCommunityIcons name="credit-card-outline" size={14} color="#fff" />
                 <Text style={styles.btnTextLight}>Thanh toán</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, styles.btnSecondary]} onPress={() => navigation.navigate("BookingEdit", { bookingId: item.id })}>
+              <TouchableOpacity style={[styles.actionBtn, styles.btnSecondary]} onPress={() => {
+                if (item.status === "PENDING") {
+                  navigation.navigate("BookingEdit", { bookingId: item.id, booking: item });
+                } else {
+                  showToast("Chỉ có thể chỉnh sửa khi chưa thanh toán cọc", "warning");
+                }
+              }}>
                 <MaterialCommunityIcons name="pencil-outline" size={14} color="#0891b2" />
                 <Text style={styles.btnTextDark}>Chỉnh sửa</Text>
               </TouchableOpacity>
@@ -221,7 +227,7 @@ export default function BookingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
       <Header title="Đặt Phòng" />
 
       {/* Filter tabs */}
