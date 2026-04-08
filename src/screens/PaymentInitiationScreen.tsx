@@ -43,7 +43,7 @@ export default function PaymentInitiationScreen() {
     ? (booking?.depositAmount ?? 0)
     : (booking?.remainingAmount ?? 0);
   const paymentLabel = isDepositPayment ? "Đặt cọc" : "Thanh toán còn lại";
-  const depositPct = (booking as any)?.depositPercentage ?? 50;
+  const depositPct = (booking as any)?.depositPercentage ?? 20;
   const nights = booking
     ? Math.max(1, Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / 86400000))
     : 0;

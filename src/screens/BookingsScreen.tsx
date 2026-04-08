@@ -43,7 +43,13 @@ export default function BookingsScreen() {
   const loadBookings = useCallback(async () => {
     try {
       const data = await bookingService.getMyBookings();
-      setItems(data || []);
+      // Sắp xếp mới nhất lên đầu theo createdAt (giống FE web)
+      const sorted = [...(data || [])].sort((a, b) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+      });
+      setItems(sorted);
     } catch (error) {
       showToast("Không thể tải danh sách đặt phòng", "error");
     } finally {

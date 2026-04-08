@@ -3,14 +3,13 @@ import {
     DatePickerModal,
     Divider,
     Header,
-    Input,
     LoadingIndicator,
 } from "@/components";
 import { bookingService } from "@/service/booking/bookingService";
 import type { Booking } from "@/types";
-import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -19,10 +18,14 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const fmt = (n: number) =>
+    n.toLocaleString("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
 export default function BookingEditScreen() {
     const route = useRoute<any>();
@@ -42,7 +45,7 @@ export default function BookingEditScreen() {
     const [policy, setPolicy] = useState<any>(null);
 
     useEffect(() => {
-        const loadBooking = async () => {
+        const load = async () => {
             try {
                 const data = await bookingService.getBookingDetail(bookingId);
                 if (data) {
@@ -53,18 +56,15 @@ export default function BookingEditScreen() {
                     setPhone(data.contactPhone || "");
                     setSpecialRequests(data.specialRequests || "");
                 }
-
-                // Load cancellation policy
                 const policyData = await bookingService.getCancellationPolicy(bookingId);
                 if (policyData) setPolicy(policyData);
-            } catch (error) {
+            } catch {
                 showToast("Không thể tải chi tiết đặt phòng", "error");
             } finally {
                 setLoading(false);
             }
         };
-
-        loadBooking();
+        load();
     }, [bookingId]);
 
     const handleConfirmDate = (date: Date) => {
@@ -87,20 +87,11 @@ export default function BookingEditScreen() {
         setActivePicker(null);
     };
 
-    const handleSaveChanges = useCallback(async () => {
-        if (!booking || !phone) {
-            showToast("Vui lòng điền đầy đủ thông tin", "warning");
+    const handleSave = useCallback(async () => {
+        if (!booking || !phone.trim()) {
+            showToast("Vui lòng điền số điện thoại", "warning");
             return;
         }
-
-        if (guestCount > (booking?.guestsCount || 1)) {
-            showToast(
-                `Số khách không thể vượt quá ${booking?.guestsCount}`,
-                "warning"
-            );
-            return;
-        }
-
         try {
             setSaving(true);
             const res = await bookingService.modifyBooking(bookingId, {
@@ -110,30 +101,39 @@ export default function BookingEditScreen() {
                 contactPhone: phone,
                 specialRequests: specialRequests || undefined,
             });
-
             if (res.success) {
                 showToast("Cập nhật đặt phòng thành công", "success");
                 navigation.goBack();
             } else {
                 showToast(res.message || "Không thể cập nhật", "error");
             }
-        } catch (error: any) {
-            showToast(error?.message || "Cập nhật thất bại", "error");
+        } catch (e: any) {
+            showToast(e?.message || "Cập nhật thất bại", "error");
         } finally {
             setSaving(false);
         }
     }, [booking, bookingId, checkInDate, checkOutDate, guestCount, phone, specialRequests, navigation]);
 
     const formatDate = (date: Date) =>
-        date.toLocaleDateString("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        });
+        date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-    const totalNights = Math.ceil(
+    const totalNights = Math.max(1, Math.ceil(
         (checkOutDate.getTime() - checkInDate.getTime()) / 86400000
-    );
+    ));
+
+    const depositPct = (booking as any)?.depositPercentage ?? 20;
+    const depositAmount = booking?.depositAmount ?? 0;
+    const remainingAmount = booking?.remainingAmount ?? 0;
+    const totalPrice = booking?.totalPrice ?? 0;
+
+    const getPolicyText = () => {
+        if (!policy) return null;
+        if (typeof policy === "string") return policy;
+        if (policy.policy) return policy.policy;
+        if (policy.description) return policy.description;
+        if (policy.message) return policy.message;
+        return null;
+    };
 
     if (loading) {
         return (
@@ -149,14 +149,14 @@ export default function BookingEditScreen() {
             <SafeAreaView style={styles.container}>
                 <Header showBack title="Chỉnh Sửa Đặt Phòng" />
                 <View style={styles.errorContainer}>
-                    <MaterialCommunityIcons
-                        name="alert-circle-outline"
-                        size={48}
-                        color="#ef4444"
-                    />
+                    <MaterialCommunityIcons name="alert-circle-outline" size={56} color="#ef4444" />
+                    <Text style={styles.errorTitle}>Không thể chỉnh sửa</Text>
                     <Text style={styles.errorText}>
-                        Chỉ có thể chỉnh sửa đặt phòng có trạng thái "Chờ xử lý"
+                        Chỉ có thể chỉnh sửa đặt phòng đang ở trạng thái chờ thanh toán cọc
                     </Text>
+                    <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                        <Text style={styles.backBtnText}>Quay lại</Text>
+                    </TouchableOpacity>
                 </View>
             </SafeAreaView>
         );
@@ -165,153 +165,190 @@ export default function BookingEditScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <Header showBack title="Chỉnh Sửa Đặt Phòng" />
-            <KeyboardAvoidingView
-                style={styles.flex}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-            >
-                <ScrollView contentContainerStyle={styles.scrollContent}>
-                    {/* Booking Info */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Thông Tin Đặt Phòng</Text>
-                        <View style={styles.infoBox}>
-                            <View style={styles.infoRow}>
-                                <Text style={styles.label}>Căn nhà:</Text>
-                                <Text style={styles.value}>{booking.homestayName}</Text>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+                    {/* Homestay summary card */}
+                    <LinearGradient colors={["#0891b2", "#0e7490"]} style={styles.summaryCard}>
+                        <View style={styles.summaryRow}>
+                            <MaterialCommunityIcons name="home-outline" size={20} color="rgba(255,255,255,0.8)" />
+                            <Text style={styles.summaryName} numberOfLines={2}>{booking.homestayName || "Căn nhà"}</Text>
+                        </View>
+                        <Text style={styles.summaryId}>#{booking.id.slice(0, 8).toUpperCase()}</Text>
+                        <Divider style={{ backgroundColor: "rgba(255,255,255,0.2)", marginVertical: 12 }} />
+                        <View style={styles.summaryStats}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Tổng tiền</Text>
+                                <Text style={styles.statValue}>{fmt(totalPrice)}</Text>
                             </View>
-                            <Divider />
-                            <View style={styles.infoRow}>
-                                <Text style={styles.label}>ID:</Text>
-                                <Text style={styles.value}>#{booking.id.slice(0, 8)}</Text>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Cọc ({depositPct}%)</Text>
+                                <Text style={[styles.statValue, { color: "#fde68a" }]}>{fmt(depositAmount)}</Text>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Còn lại</Text>
+                                <Text style={styles.statValue}>{fmt(remainingAmount)}</Text>
                             </View>
                         </View>
-                    </View>
+                    </LinearGradient>
 
-                    {/* Date Selection */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Ngày Ở</Text>
+                    {/* Date section */}
+                    <View style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <MaterialCommunityIcons name="calendar-range" size={18} color="#0891b2" />
+                            <Text style={styles.cardTitle}>Ngày lưu trú</Text>
+                        </View>
+                        <View style={styles.dateRow}>
+                            <TouchableOpacity
+                                style={styles.dateBtn}
+                                onPress={() => setActivePicker("checkIn")}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.dateBtnLabel}>Nhận phòng</Text>
+                                <View style={styles.dateBtnValue}>
+                                    <MaterialCommunityIcons name="calendar-arrow-right" size={16} color="#0891b2" />
+                                    <Text style={styles.dateBtnText}>{formatDate(checkInDate)}</Text>
+                                </View>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.dateButton}
-                            onPress={() => setActivePicker("checkIn")}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="calendar-outline"
-                                size={20}
-                                color="#0891b2"
-                            />
-                            <View style={styles.dateButtonContent}>
-                                <Text style={styles.dateLabel}>Nhận phòng</Text>
-                                <Text style={styles.dateValue}>{formatDate(checkInDate)}</Text>
-                            </View>
-                        </TouchableOpacity>
+                            <MaterialCommunityIcons name="arrow-right" size={18} color="#cbd5e1" style={{ marginTop: 18 }} />
 
-                        <TouchableOpacity
-                            style={styles.dateButton}
-                            onPress={() => setActivePicker("checkOut")}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="calendar-outline"
-                                size={20}
-                                color="#0891b2"
-                            />
-                            <View style={styles.dateButtonContent}>
-                                <Text style={styles.dateLabel}>Trả phòng</Text>
-                                <Text style={styles.dateValue}>
-                                    {formatDate(checkOutDate)}
+                            <TouchableOpacity
+                                style={styles.dateBtn}
+                                onPress={() => setActivePicker("checkOut")}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.dateBtnLabel}>Trả phòng</Text>
+                                <View style={styles.dateBtnValue}>
+                                    <MaterialCommunityIcons name="calendar-arrow-left" size={16} color="#0891b2" />
+                                    <Text style={styles.dateBtnText}>{formatDate(checkOutDate)}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.nightsBadge}>
+                            <MaterialCommunityIcons name="moon-waning-crescent" size={14} color="#0891b2" />
+                            <Text style={styles.nightsText}>{totalNights} đêm</Text>
+                            {totalPrice > 0 && (
+                                <Text style={styles.nightsPrice}>
+                                    · {fmt(Math.round(totalPrice / totalNights))}/đêm
                                 </Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        {showCheckInPicker && (
-                            <DateTimePicker
-                                value={checkInDate}
-                                mode="date"
-                                display="spinner"
-                                onChange={handleCheckInDate}
-                            />
-                        )}
-
-                        {showCheckOutPicker && (
-                            <DateTimePicker
-                                value={checkOutDate}
-                                mode="date"
-                                display="spinner"
-                                onChange={handleCheckOutDate}
-                            />
-                        )}
-
-                        <View style={styles.nights}>
-                            <Text style={styles.nightsText}>
-                                {totalNights} đêm × {((booking.totalPrice || 0) / totalNights).toLocaleString()} đ
-                            </Text>
+                            )}
                         </View>
                     </View>
 
                     {/* Guests & Contact */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Số Khách & Liên Hệ</Text>
+                    <View style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <MaterialCommunityIcons name="account-group-outline" size={18} color="#0891b2" />
+                            <Text style={styles.cardTitle}>Khách & Liên hệ</Text>
+                        </View>
 
-                        <Input
-                            label="Số Khách"
-                            placeholder="1"
-                            value={String(guestCount)}
-                            onChangeText={(text) => {
-                                const num = parseInt(text) || 1;
-                                setGuestCount(Math.min(num, booking.guestsCount || 1));
-                            }}
-                            keyboardType="numeric"
-                        />
+                        {/* Guest counter */}
+                        <View style={styles.fieldRow}>
+                            <Text style={styles.fieldLabel}>Số khách</Text>
+                            <View style={styles.counter}>
+                                <TouchableOpacity
+                                    style={[styles.counterBtn, guestCount <= 1 && styles.counterBtnDisabled]}
+                                    onPress={() => setGuestCount(Math.max(1, guestCount - 1))}
+                                    disabled={guestCount <= 1}
+                                >
+                                    <MaterialCommunityIcons name="minus" size={16} color={guestCount <= 1 ? "#cbd5e1" : "#0891b2"} />
+                                </TouchableOpacity>
+                                <Text style={styles.counterValue}>{guestCount}</Text>
+                                <TouchableOpacity
+                                    style={[styles.counterBtn, guestCount >= (booking.guestsCount || 10) && styles.counterBtnDisabled]}
+                                    onPress={() => setGuestCount(Math.min(booking.guestsCount || 10, guestCount + 1))}
+                                    disabled={guestCount >= (booking.guestsCount || 10)}
+                                >
+                                    <MaterialCommunityIcons name="plus" size={16} color={guestCount >= (booking.guestsCount || 10) ? "#cbd5e1" : "#0891b2"} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
 
-                        <Input
-                            label="Số Điện Thoại"
-                            placeholder="0123456789"
-                            value={phone}
-                            onChangeText={setPhone}
-                            keyboardType="phone-pad"
-                        />
+                        <Divider style={{ marginVertical: 12 }} />
+
+                        {/* Phone */}
+                        <Text style={styles.fieldLabel}>Số điện thoại liên hệ</Text>
+                        <View style={styles.inputWrapper}>
+                            <MaterialCommunityIcons name="phone-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.textInput}
+                                value={phone}
+                                onChangeText={setPhone}
+                                placeholder="0123 456 789"
+                                placeholderTextColor="#cbd5e1"
+                                keyboardType="phone-pad"
+                            />
+                        </View>
                     </View>
 
-                    {/* Special Requests */}
-                    <View style={styles.section}>
-                        <Input
-                            label="Yêu Cầu Đặc Biệt"
-                            placeholder="Nhập yêu cầu thêm (tùy chọn)"
+                    {/* Special requests */}
+                    <View style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <MaterialCommunityIcons name="message-text-outline" size={18} color="#0891b2" />
+                            <Text style={styles.cardTitle}>Yêu cầu đặc biệt</Text>
+                            <Text style={styles.optionalTag}>Tùy chọn</Text>
+                        </View>
+                        <TextInput
+                            style={styles.textArea}
                             value={specialRequests}
                             onChangeText={setSpecialRequests}
+                            placeholder="Ví dụ: phòng tầng cao, giường đôi, đến muộn..."
+                            placeholderTextColor="#cbd5e1"
                             multiline
-                            numberOfLines={3}
+                            numberOfLines={4}
+                            textAlignVertical="top"
                         />
                     </View>
 
-                    {/* Cancellation Policy */}
-                    {policy && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Chính Sách Hủy</Text>
-                            <View style={styles.policyBox}>
-                                <Text style={styles.policyText}>{policy.description || policy}</Text>
+                    {/* Cancellation policy */}
+                    {getPolicyText() && (
+                        <View style={styles.policyCard}>
+                            <View style={styles.cardHeader}>
+                                <MaterialCommunityIcons name="shield-alert-outline" size={18} color="#d97706" />
+                                <Text style={[styles.cardTitle, { color: "#92400e" }]}>Chính sách hủy</Text>
                             </View>
+                            <Text style={styles.policyText}>{getPolicyText()}</Text>
                         </View>
                     )}
 
-                    {/* Action Buttons */}
-                    <View style={styles.section}>
-                        <Button
-                            title="Lưu Thay Đổi"
-                            onPress={handleSaveChanges}
-                            loading={saving}
-                            style={styles.saveButton}
-                        />
-                        <Button
-                            title="Hủy"
-                            variant="outline"
-                            onPress={() => navigation.goBack()}
-                            style={styles.cancelButton}
-                        />
+                    {/* Actions */}
+                    <View style={styles.actions}>
+                        <TouchableOpacity
+                            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                            onPress={handleSave}
+                            disabled={saving}
+                            activeOpacity={0.85}
+                        >
+                            <LinearGradient
+                                colors={["#0891b2", "#0e7490"]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.saveBtnGradient}
+                            >
+                                <MaterialCommunityIcons
+                                    name={saving ? "loading" : "content-save-outline"}
+                                    size={18}
+                                    color="#fff"
+                                />
+                                <Text style={styles.saveBtnText}>
+                                    {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                                </Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+                            <Text style={styles.cancelBtnText}>Hủy bỏ</Text>
+                        </TouchableOpacity>
                     </View>
+
+                    <View style={{ height: 24 }} />
                 </ScrollView>
             </KeyboardAvoidingView>
+
             <DatePickerModal
                 visible={activePicker !== null}
                 value={activePicker === "checkOut" ? checkOutDate : checkInDate}
@@ -325,116 +362,102 @@ export default function BookingEditScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#f8fafc",
-    },
-    flex: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        paddingBottom: 40,
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 12,
-    },
-    errorText: {
-        fontSize: 16,
-        color: "#6b7280",
-        textAlign: "center",
-        maxWidth: 300,
-    },
-    section: {
-        marginBottom: 24,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#1e293b",
-        marginBottom: 12,
-    },
-    infoBox: {
+    container: { flex: 1, backgroundColor: "#f0f9ff" },
+    scroll: { padding: 16 },
+
+    // Error state
+    errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 12 },
+    errorTitle: { fontSize: 18, fontWeight: "700", color: "#1e293b" },
+    errorText: { fontSize: 14, color: "#64748b", textAlign: "center", lineHeight: 20 },
+    backBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#0891b2", borderRadius: 10 },
+    backBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+
+    // Summary card
+    summaryCard: { borderRadius: 16, padding: 18, marginBottom: 16 },
+    summaryRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 4 },
+    summaryName: { flex: 1, fontSize: 16, fontWeight: "700", color: "#fff" },
+    summaryId: { fontSize: 11, color: "rgba(255,255,255,0.6)", marginBottom: 4 },
+    summaryStats: { flexDirection: "row", alignItems: "center" },
+    statItem: { flex: 1, alignItems: "center" },
+    statLabel: { fontSize: 11, color: "rgba(255,255,255,0.7)", marginBottom: 4 },
+    statValue: { fontSize: 13, fontWeight: "700", color: "#fff" },
+    statDivider: { width: 1, height: 32, backgroundColor: "rgba(255,255,255,0.2)" },
+
+    // Cards
+    card: {
         backgroundColor: "#fff",
-        borderRadius: 8,
-        overflow: "hidden",
+        borderRadius: 14,
+        padding: 16,
+        marginBottom: 14,
         borderWidth: 1,
         borderColor: "#e2e8f0",
     },
-    infoRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+    cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
+    cardTitle: { fontSize: 14, fontWeight: "700", color: "#1e293b", flex: 1 },
+    optionalTag: {
+        fontSize: 11, color: "#94a3b8", backgroundColor: "#f1f5f9",
+        paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6,
     },
-    label: {
-        fontSize: 14,
-        fontWeight: "500",
-        color: "#64748b",
+
+    // Date picker
+    dateRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    dateBtn: {
+        flex: 1, backgroundColor: "#f8fafc", borderRadius: 10,
+        borderWidth: 1, borderColor: "#e2e8f0", padding: 12,
     },
-    value: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#1e293b",
+    dateBtnLabel: { fontSize: 11, color: "#94a3b8", marginBottom: 6, fontWeight: "500" },
+    dateBtnValue: { flexDirection: "row", alignItems: "center", gap: 6 },
+    dateBtnText: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
+    nightsBadge: {
+        flexDirection: "row", alignItems: "center", gap: 6,
+        marginTop: 12, backgroundColor: "#e0f2fe",
+        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: "flex-start",
     },
-    dateButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        marginBottom: 8,
-        backgroundColor: "#fff",
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: "#e2e8f0",
+    nightsText: { fontSize: 13, fontWeight: "700", color: "#0891b2" },
+    nightsPrice: { fontSize: 12, color: "#0891b2" },
+
+    // Guest counter
+    fieldRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    fieldLabel: { fontSize: 13, fontWeight: "600", color: "#475569", marginBottom: 8 },
+    counter: { flexDirection: "row", alignItems: "center", gap: 0 },
+    counterBtn: {
+        width: 36, height: 36, borderRadius: 10,
+        backgroundColor: "#e0f2fe", justifyContent: "center", alignItems: "center",
     },
-    dateButtonContent: {
-        flex: 1,
+    counterBtnDisabled: { backgroundColor: "#f1f5f9" },
+    counterValue: { width: 40, textAlign: "center", fontSize: 16, fontWeight: "700", color: "#0f172a" },
+
+    // Inputs
+    inputWrapper: {
+        flexDirection: "row", alignItems: "center",
+        backgroundColor: "#f8fafc", borderRadius: 10,
+        borderWidth: 1, borderColor: "#e2e8f0",
+        paddingHorizontal: 12, height: 48,
     },
-    dateLabel: {
-        fontSize: 12,
-        color: "#64748b",
-        marginBottom: 4,
+    inputIcon: { marginRight: 8 },
+    textInput: { flex: 1, fontSize: 14, color: "#0f172a" },
+    textArea: {
+        backgroundColor: "#f8fafc", borderRadius: 10,
+        borderWidth: 1, borderColor: "#e2e8f0",
+        padding: 12, fontSize: 14, color: "#0f172a",
+        minHeight: 96, lineHeight: 20,
     },
-    dateValue: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#1e293b",
+
+    // Policy
+    policyCard: {
+        backgroundColor: "#fffbeb", borderRadius: 14, padding: 16,
+        marginBottom: 14, borderWidth: 1, borderColor: "#fde68a",
     },
-    nights: {
-        marginTop: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        backgroundColor: "#f0f9ff",
-        borderRadius: 6,
+    policyText: { fontSize: 13, color: "#92400e", lineHeight: 20 },
+
+    // Actions
+    actions: { gap: 10, marginTop: 4 },
+    saveBtn: { borderRadius: 14, overflow: "hidden" },
+    saveBtnGradient: {
+        flexDirection: "row", alignItems: "center", justifyContent: "center",
+        gap: 8, paddingVertical: 16,
     },
-    nightsText: {
-        fontSize: 13,
-        fontWeight: "500",
-        color: "#0369a1",
-    },
-    policyBox: {
-        padding: 12,
-        backgroundColor: "#fef3c7",
-        borderRadius: 8,
-        borderLeftWidth: 4,
-        borderLeftColor: "#f59e0b",
-    },
-    policyText: {
-        fontSize: 13,
-        color: "#92400e",
-        lineHeight: 18,
-    },
-    saveButton: {
-        marginBottom: 8,
-    },
-    cancelButton: {
-        marginBottom: 8,
-    },
+    saveBtnText: { fontSize: 15, fontWeight: "800", color: "#fff" },
+    cancelBtn: { alignItems: "center", paddingVertical: 14 },
+    cancelBtnText: { fontSize: 14, color: "#64748b", fontWeight: "600" },
 });
