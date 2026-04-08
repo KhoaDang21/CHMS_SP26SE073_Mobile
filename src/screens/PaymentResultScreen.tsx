@@ -2,11 +2,9 @@ import { Button, Header, LoadingIndicator } from "@/components";
 import { bookingService } from "@/service/booking/bookingService";
 import { paymentService } from "@/service/payment/paymentService";
 import { colors } from "@/utils/colors";
-import { logger } from "@/utils/logger";
-import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
@@ -15,81 +13,111 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const MAX_POLL_ATTEMPTS = 8;
+const POLL_INTERVAL_MS = 2500;
+
 export default function PaymentResultScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
-    const paymentId = route.params?.paymentId as string;
-    const bookingId = route.params?.bookingId as string;
+    const paymentId = route.params?.paymentId as string | undefined;
+    const bookingId = route.params?.bookingId as string | undefined;
 
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState<"SUCCESS" | "PENDING" | "FAILED" | "ERROR">("PENDING");
     const [paymentDetail, setPaymentDetail] = useState<any>(null);
     const [bookingDetail, setBookingDetail] = useState<any>(null);
+    const pollCount = useRef(0);
+    const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    useEffect(() => {
-        const checkPaymentStatus = async () => {
-            if (!paymentId && !bookingId) {
-                setStatus("ERROR");
-                setLoading(false);
-                return;
-            }
+    const resolveStatus = useCallback(async (): Promise<"SUCCESS" | "PENDING" | "FAILED" | "ERROR"> => {
+        // Lấy booking detail — đây là nguồn truth chính, giống FE web
+        const bookingRow = bookingId
+            ? await bookingService.getBookingDetail(bookingId).catch(() => null)
+            : null;
 
-            try {
-                let resolvedPaymentId = paymentId;
+        if (bookingRow) {
+            setBookingDetail(bookingRow);
+            const bStatus = (bookingRow.status ?? "").toUpperCase();
+            const bPayStatus = (bookingRow.paymentStatus ?? "").toUpperCase();
 
-                if (!resolvedPaymentId && bookingId) {
+            // Booking đã confirmed/paid → thành công
+            if (
+                bStatus === "CONFIRMED" ||
+                bStatus === "CHECKED_IN" ||
+                bStatus === "COMPLETED" ||
+                bPayStatus === "FULLY_PAID" ||
+                bPayStatus === "DEPOSIT_PAID"
+            ) {
+                // Lấy thêm payment detail từ history để hiển thị (không throw nếu lỗi)
+                try {
                     const history = await paymentService.getPaymentHistory();
                     const forBooking = history
                         .filter((p) => p.bookingId === bookingId)
-                        .sort(
-                            (a, b) =>
-                                new Date(b.createdAt).getTime() -
-                                new Date(a.createdAt).getTime(),
-                        );
-                    resolvedPaymentId = forBooking[0]?.id;
-                }
-
-                const [payment, bookingRow] = await Promise.all([
-                    resolvedPaymentId
-                        ? paymentService.getPaymentDetail(resolvedPaymentId)
-                        : Promise.resolve(null),
-                    bookingId
-                        ? bookingService.getBookingDetail(bookingId)
-                        : Promise.resolve(null),
-                ]);
-
-                setPaymentDetail(payment);
-                setBookingDetail(bookingRow);
-
-                if (payment?.status === "COMPLETED") {
-                    setStatus("SUCCESS");
-                } else if (payment?.status === "PENDING") {
-                    setStatus("PENDING");
-                } else if (
-                    payment?.status === "FAILED" ||
-                    payment?.status === "CANCELLED"
-                ) {
-                    setStatus("FAILED");
-                } else if (!payment && bookingRow?.paymentStatus === "FULLY_PAID") {
-                    setStatus("SUCCESS");
-                } else if (!payment && bookingRow?.paymentStatus === "DEPOSIT_PAID") {
-                    setStatus("PENDING");
-                } else if (!payment) {
-                    setStatus("PENDING");
-                }
-            } catch (error) {
-
-                setStatus("ERROR");
-                showToast("Không thể kiểm tra trạng thái thanh toán", "error");
-            } finally {
-                setLoading(false);
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                    if (forBooking[0]) setPaymentDetail(forBooking[0]);
+                } catch { /* không cần thiết */ }
+                return "SUCCESS";
             }
-        };
 
-        checkPaymentStatus();
+            if (bStatus === "CANCELLED" || bStatus === "REJECTED") return "FAILED";
+        }
+
+        // Booking chưa update → check payment history
+        try {
+            const history = await paymentService.getPaymentHistory();
+            const forBooking = history
+                .filter((p) => p.bookingId === bookingId)
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            const latestPayment = forBooking[0];
+
+            if (latestPayment) {
+                setPaymentDetail(latestPayment);
+                if (latestPayment.status === "COMPLETED") return "SUCCESS";
+                if (latestPayment.status === "FAILED" || latestPayment.status === "CANCELLED") return "FAILED";
+            }
+        } catch { /* fallback to PENDING */ }
+
+        return "PENDING";
     }, [paymentId, bookingId]);
 
+    const checkStatus = useCallback(async (isInitial = false) => {
+        if (!bookingId) {
+            setStatus("ERROR");
+            setLoading(false);
+            return;
+        }
+        try {
+            const resolved = await resolveStatus();
+            setStatus(resolved);
+
+            // Nếu vẫn PENDING → poll thêm để chờ webhook xử lý
+            if (resolved === "PENDING" && pollCount.current < MAX_POLL_ATTEMPTS) {
+                pollCount.current += 1;
+                pollTimer.current = setTimeout(() => checkStatus(), POLL_INTERVAL_MS);
+            }
+        } catch {
+            // resolveStatus đã wrap try/catch bên trong, nếu vẫn throw thì retry
+            if (pollCount.current < MAX_POLL_ATTEMPTS) {
+                pollCount.current += 1;
+                pollTimer.current = setTimeout(() => checkStatus(), POLL_INTERVAL_MS);
+            } else {
+                // Hết retry mà vẫn lỗi → hiện PENDING thay vì ERROR (thanh toán có thể đã xong)
+                setStatus("PENDING");
+            }
+        } finally {
+            if (isInitial) setLoading(false);
+        }
+    }, [resolveStatus, bookingId]);
+
+    useEffect(() => {
+        checkStatus(true);
+        return () => {
+            if (pollTimer.current) clearTimeout(pollTimer.current);
+        };
+    }, []);
+
     const handleContinue = useCallback(() => {
+        if (pollTimer.current) clearTimeout(pollTimer.current);
         if (status === "SUCCESS") {
             navigation.replace("MainTabs", { screen: "Bookings" });
         } else {
@@ -140,7 +168,12 @@ export default function PaymentResultScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <Header showBack title="" />
-                <LoadingIndicator />
+                <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 16 }}>
+                    <LoadingIndicator />
+                    <Text style={{ fontSize: 14, color: colors.text.secondary }}>
+                        Đang kiểm tra trạng thái thanh toán...
+                    </Text>
+                </View>
             </SafeAreaView>
         );
     }

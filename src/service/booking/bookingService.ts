@@ -26,6 +26,9 @@ const mapBooking = (item: Record<string, unknown>): Booking => ({
   remainingAmount: (item.remainingAmount ?? item.RemainingAmount) as
     | number
     | undefined,
+  depositPercentage: (item.depositPercentage ?? item.DepositPercentage) as
+    | number
+    | undefined,
   paymentStatus: (item.paymentStatus ??
     item.PaymentStatus) as Booking["paymentStatus"],
   status: normalizeStatus(item.status ?? item.Status),

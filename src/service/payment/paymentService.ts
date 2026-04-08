@@ -18,11 +18,21 @@ export interface PaymentDetail {
   id: string;
   bookingId: string;
   amount: number;
-  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  // Backend trả về Pascal case: "Pending", "Paid", "Failed", "Cancelled"
+  status: string;
   method: string;
   transactionId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Normalize backend status (Pascal/mixed) → uppercase canonical */
+export function normalizePaymentStatus(raw: string): "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" {
+  const s = (raw ?? "").toLowerCase();
+  if (s === "paid" || s === "completed" || s === "success") return "COMPLETED";
+  if (s === "failed" || s === "fail") return "FAILED";
+  if (s === "cancelled" || s === "canceled") return "CANCELLED";
+  return "PENDING";
 }
 
 export const paymentService = {
@@ -56,7 +66,7 @@ export const paymentService = {
       id: data.id,
       bookingId: data.bookingId,
       amount: data.amount,
-      status: data.status || "PENDING",
+      status: normalizePaymentStatus(data.status),
       method: data.method,
       transactionId: data.transactionId,
       createdAt: data.createdAt,
@@ -66,16 +76,13 @@ export const paymentService = {
 
   async getPaymentHistory(): Promise<PaymentDetail[]> {
     const res = await apiClient.get<any>(apiConfig.endpoints.payments.history);
-    const list = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-        ? res
-        : [];
+    // BE trả: ApiResponse<List<PaymentResponseDTO>> { data: [...] }
+    const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
     return list.map((item: any) => ({
       id: item.id,
       bookingId: item.bookingId,
       amount: item.amount,
-      status: item.status || "PENDING",
+      status: normalizePaymentStatus(item.status),
       method: item.method,
       transactionId: item.transactionId,
       createdAt: item.createdAt,

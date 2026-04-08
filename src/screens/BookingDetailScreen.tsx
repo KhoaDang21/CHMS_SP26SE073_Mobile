@@ -334,7 +334,7 @@ export default function BookingDetailScreen() {
                 <Divider style={{ marginVertical: 8 }} />
                 <View style={styles.priceRow}>
                   <Text style={styles.priceRowLabel}>
-                    Tiền cọc ({(booking as any).depositPercentage ?? 50}%)
+                    Tiền cọc ({(booking as any).depositPercentage ?? 20}%)
                   </Text>
                   <Text style={[styles.priceRowValue, { color: depositPaid ? "#059669" : "#d97706" }]}>
                     ₫{booking.depositAmount.toLocaleString("vi-VN")}

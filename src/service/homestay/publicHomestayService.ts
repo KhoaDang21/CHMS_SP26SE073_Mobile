@@ -20,7 +20,7 @@ const mapHomestay = (it: Record<string, unknown>): Homestay => ({
     it.amenityNames ??
     []) as string[],
   ownerName: String(it.ownerName ?? it.OwnerName ?? ""),
-  depositPercentage: Number(it.depositPercentage ?? it.DepositPercentage ?? 50),
+  depositPercentage: Number(it.depositPercentage ?? it.DepositPercentage ?? 20),
   averageRating:
     it.averageRating != null || it.AverageRating != null
       ? Number(it.averageRating ?? it.AverageRating)

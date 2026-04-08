@@ -76,22 +76,32 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, style }) => {
             CHECKED_IN: { bg: "#e0e7ff", text: "#312e81" },
             REJECTED: { bg: "#fee2e2", text: "#991b1b" },
         };
-
         return statusMap[status] || { bg: "#f1f5f9", text: "#64748b" };
+    };
+
+    const getStatusLabel = (status: string) => {
+        const labelMap: { [key: string]: string } = {
+            PENDING: "Chờ thanh toán cọc",
+            CONFIRMED: "Đã xác nhận",
+            COMPLETED: "Hoàn thành",
+            CANCELLED: "Đã hủy",
+            CHECKED_IN: "Đang lưu trú",
+            REJECTED: "Bị từ chối",
+            // payment statuses
+            UNPAID: "Chưa thanh toán",
+            DEPOSIT_PAID: "Đã đặt cọc",
+            FULLY_PAID: "Đã thanh toán đủ",
+            PARTIALLY_PAID: "Thanh toán một phần",
+        };
+        return labelMap[status] ?? status;
     };
 
     const colors = getStatusColor(status);
 
     return (
-        <View
-            style={[
-                styles.badge,
-                { backgroundColor: colors.bg },
-                style,
-            ]}
-        >
+        <View style={[styles.badge, { backgroundColor: colors.bg }, style]}>
             <Text style={[styles.badgeText, { color: colors.text }]}>
-                {status}
+                {getStatusLabel(status)}
             </Text>
         </View>
     );
