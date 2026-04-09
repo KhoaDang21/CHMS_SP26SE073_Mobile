@@ -13,12 +13,17 @@ import {
 } from "react-native";
 import { useState } from "react";
 
+export interface SelectedExperience {
+    item: Experience;
+    qty: number;
+}
+
 interface ExperiencePickerModalProps {
     visible: boolean;
     experiences: Experience[];
-    selectedIds?: string[];
+    selected?: SelectedExperience[];
     title?: string;
-    onConfirm: (selected: Experience[]) => void;
+    onConfirm: (selected: SelectedExperience[]) => void;
     onCancel: () => void;
     loading?: boolean;
 }
@@ -29,106 +34,154 @@ const fmt = (n: number) =>
 export function ExperiencePickerModal({
     visible,
     experiences,
-    selectedIds = [],
-    title = "Chọn Dịch Vụ",
+    selected = [],
+    title = "Dịch vụ địa phương",
     onConfirm,
     onCancel,
     loading = false,
 }: ExperiencePickerModalProps) {
-    const [tempSelected, setTempSelected] = useState<Set<string>>(
-        new Set(selectedIds),
-    );
+    const [tempQtys, setTempQtys] = useState<Record<string, number>>(() => {
+        const map: Record<string, number> = {};
+        selected.forEach((s) => { map[s.item.id] = s.qty; });
+        return map;
+    });
+
+    const onShow = () => {
+        const map: Record<string, number> = {};
+        selected.forEach((s) => { map[s.item.id] = s.qty; });
+        setTempQtys(map);
+    };
 
     const handleToggle = (id: string) => {
-        const updated = new Set(tempSelected);
-        if (updated.has(id)) {
-            updated.delete(id);
-        } else {
-            updated.add(id);
-        }
-        setTempSelected(updated);
+        setTempQtys((prev) => {
+            if (prev[id]) {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            }
+            return { ...prev, [id]: 1 };
+        });
+    };
+
+    const handleQtyChange = (id: string, delta: number) => {
+        setTempQtys((prev) => {
+            const current = prev[id] ?? 0;
+            const next = current + delta;
+            if (next <= 0) {
+                const updated = { ...prev };
+                delete updated[id];
+                return updated;
+            }
+            return { ...prev, [id]: Math.min(next, 20) };
+        });
     };
 
     const handleConfirm = () => {
-        const selected = experiences.filter((e) => tempSelected.has(e.id));
-        onConfirm(selected);
+        const result: SelectedExperience[] = Object.entries(tempQtys)
+            .map(([id, qty]) => {
+                const exp = experiences.find((e) => e.id === id);
+                return exp ? { item: exp, qty } : null;
+            })
+            .filter((x): x is SelectedExperience => x !== null);
+        onConfirm(result);
     };
 
-    const onShow = () => {
-        setTempSelected(new Set(selectedIds));
-    };
+    const totalPrice = Object.entries(tempQtys).reduce((sum, [id, qty]) => {
+        const exp = experiences.find((e) => e.id === id);
+        return sum + (exp ? exp.price * qty : 0);
+    }, 0);
 
-    const totalPrice = experiences
-        .filter((e) => tempSelected.has(e.id))
-        .reduce((sum, e) => sum + e.price, 0);
+    const selectedCount = Object.keys(tempQtys).length;
 
     const renderItem = ({ item }: { item: Experience }) => {
-        const isSelected = tempSelected.has(item.id);
+        const qty = tempQtys[item.id] ?? 0;
+        const isSelected = qty > 0;
+
         return (
-            <TouchableOpacity
-                style={[styles.itemContainer, isSelected && styles.itemSelected]}
-                onPress={() => handleToggle(item.id)}
-                activeOpacity={0.7}
-            >
-                <View style={styles.itemContent}>
-                    <View style={styles.checkboxContainer}>
-                        <View
-                            style={[
-                                styles.checkbox,
-                                isSelected && styles.checkboxChecked,
-                            ]}
-                        >
+            <View style={[styles.itemContainer, isSelected && styles.itemSelected]}>
+                <View style={styles.itemRow}>
+                    {/* Checkbox */}
+                    <TouchableOpacity
+                        style={styles.checkboxWrap}
+                        onPress={() => handleToggle(item.id)}
+                        activeOpacity={0.7}
+                    >
+                        <View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
                             {isSelected && (
-                                <MaterialCommunityIcons
-                                    name="check"
-                                    size={16}
-                                    color="#fff"
-                                />
+                                <MaterialCommunityIcons name="check" size={14} color="#fff" />
                             )}
                         </View>
-                    </View>
-                    <View style={styles.itemDetails}>
-                        <Text style={styles.itemName} numberOfLines={1}>
-                            {item.name}
+                    </TouchableOpacity>
+
+                    {/* Info */}
+                    <TouchableOpacity
+                        style={styles.itemInfo}
+                        onPress={() => handleToggle(item.id)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+                        <Text style={styles.itemMeta}>
+                            {item.category ? `${item.category} · ` : ""}
+                            <Text style={styles.itemPrice}>{fmt(item.price)}</Text>
+                            <Text style={styles.itemUnit}>/người</Text>
                         </Text>
-                        {item.description && (
-                            <Text style={styles.itemDesc} numberOfLines={2}>
-                                {item.description}
-                            </Text>
-                        )}
-                        {item.category && (
-                            <View style={styles.categoryBadge}>
-                                <Text style={styles.categoryText}>{item.category}</Text>
+                        {item.description ? (
+                            <Text style={styles.itemDesc} numberOfLines={2}>{item.description}</Text>
+                        ) : null}
+                    </TouchableOpacity>
+
+                    {/* Qty picker — chỉ hiện khi đã chọn */}
+                    {isSelected && (
+                        <View style={styles.qtyRow}>
+                            <TouchableOpacity
+                                style={styles.qtyBtn}
+                                onPress={() => handleQtyChange(item.id, -1)}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons name="minus" size={16} color="#0891b2" />
+                            </TouchableOpacity>
+                            <View style={styles.qtyDisplay}>
+                                <Text style={styles.qtyText}>{qty}</Text>
+                                <Text style={styles.qtyLabel}>người</Text>
                             </View>
-                        )}
-                    </View>
-                    <View style={styles.priceContainer}>
-                        <Text style={styles.price}>{fmt(item.price)}</Text>
-                    </View>
+                            <TouchableOpacity
+                                style={[styles.qtyBtn, qty >= 20 && styles.qtyBtnDisabled]}
+                                onPress={() => handleQtyChange(item.id, 1)}
+                                disabled={qty >= 20}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name="plus"
+                                    size={16}
+                                    color={qty >= 20 ? "#cbd5e1" : "#0891b2"}
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
-            </TouchableOpacity>
+
+                {/* Subtotal khi đã chọn */}
+                {isSelected && (
+                    <View style={styles.subtotalRow}>
+                        <Text style={styles.subtotalLabel}>{qty} người × {fmt(item.price)}</Text>
+                        <Text style={styles.subtotalPrice}>{fmt(item.price * qty)}</Text>
+                    </View>
+                )}
+            </View>
         );
     };
 
     const content = (
         <View style={styles.content}>
             {loading ? (
-                <View style={styles.loadingContainer}>
-                    <MaterialCommunityIcons
-                        name="loading"
-                        size={32}
-                        color="#0891b2"
-                    />
-                    <Text style={styles.loadingText}>Đang tải dịch vụ...</Text>
+                <View style={styles.centerBox}>
+                    <MaterialCommunityIcons name="loading" size={32} color="#0891b2" />
+                    <Text style={styles.centerText}>Đang tải dịch vụ...</Text>
                 </View>
             ) : experiences.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <MaterialCommunityIcons
-                        name="inbox-outline"
-                        size={48}
-                        color="#cbd5e1"
-                    />
-                    <Text style={styles.emptyText}>Không có dịch vụ nào</Text>
+                <View style={styles.centerBox}>
+                    <MaterialCommunityIcons name="inbox-outline" size={48} color="#cbd5e1" />
+                    <Text style={styles.centerText}>Không có dịch vụ nào</Text>
                 </View>
             ) : (
                 <FlatList
@@ -144,110 +197,61 @@ export function ExperiencePickerModal({
         </View>
     );
 
-    if (Platform.OS === "android") {
-        return (
-            <Modal
-                visible={visible}
-                transparent
-                animationType="fade"
-                onShow={onShow}
-                onRequestClose={onCancel}
-            >
-                <Pressable style={styles.overlay} onPress={onCancel}>
-                    <Pressable
-                        style={styles.androidContainer}
-                        onPress={(e) => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <TouchableOpacity
-                                style={styles.headerBtn}
-                                onPress={onCancel}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.cancelText}>Hủy</Text>
-                            </TouchableOpacity>
-                            <Text style={styles.title}>{title}</Text>
-                            <View style={{ width: 64 }} />
-                        </View>
+    const footer = !loading && experiences.length > 0 ? (
+        <View style={styles.footer}>
+            <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>
+                    {selectedCount > 0 ? `${selectedCount} dịch vụ đã chọn` : "Chưa chọn dịch vụ"}
+                </Text>
+                <Text style={styles.totalPrice}>{totalPrice > 0 ? fmt(totalPrice) : "—"}</Text>
+            </View>
+            <Button
+                title={selectedCount > 0 ? `Xác nhận (${selectedCount})` : "Bỏ qua"}
+                onPress={handleConfirm}
+                style={styles.confirmBtn}
+            />
+        </View>
+    ) : null;
 
-                        {/* Content */}
-                        {content}
+    const sheetStyle = Platform.OS === "android" ? styles.androidSheet : styles.iosSheet;
 
-                        {/* Footer */}
-                        {!loading && experiences.length > 0 && (
-                            <View style={styles.footer}>
-                                <View style={styles.totalContainer}>
-                                    <Text style={styles.totalLabel}>Tổng cộng:</Text>
-                                    <Text style={styles.totalPrice}>{fmt(totalPrice)}</Text>
-                                </View>
-                                <Button
-                                    title={`Xác Nhận (${tempSelected.size})`}
-                                    onPress={handleConfirm}
-                                    style={styles.confirmBtn}
-                                    disabled={tempSelected.size === 0}
-                                />
-                            </View>
-                        )}
-                    </Pressable>
-                </Pressable>
-            </Modal>
-        );
-    }
-
-    // iOS
     return (
         <Modal
             visible={visible}
             transparent
-            animationType="slide"
+            animationType={Platform.OS === "ios" ? "slide" : "fade"}
             onShow={onShow}
             onRequestClose={onCancel}
         >
             <Pressable style={styles.overlay} onPress={onCancel}>
-                <Pressable
-                    style={styles.iosSheet}
-                    onPress={(e) => e.stopPropagation()}
-                >
+                <Pressable style={sheetStyle} onPress={(e) => e.stopPropagation()}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <TouchableOpacity
-                            style={styles.headerBtn}
-                            onPress={onCancel}
-                            activeOpacity={0.7}
-                        >
+                        <TouchableOpacity style={styles.headerBtn} onPress={onCancel} activeOpacity={0.7}>
                             <Text style={styles.cancelText}>Hủy</Text>
                         </TouchableOpacity>
-                        <Text style={styles.title}>{title}</Text>
+                        <Text style={styles.headerTitle}>{title}</Text>
                         <TouchableOpacity
                             style={styles.headerBtn}
                             onPress={handleConfirm}
                             activeOpacity={0.7}
-                            disabled={tempSelected.size === 0}
                         >
-                            <Text
-                                style={[
-                                    styles.confirmText,
-                                    tempSelected.size === 0 && styles.confirmTextDisabled,
-                                ]}
-                            >
-                                Xác Nhận
+                            <Text style={[styles.doneText, selectedCount === 0 && styles.doneTextMuted]}>
+                                Xong
                             </Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Content */}
-                    {content}
+                    {/* Hint */}
+                    <View style={styles.hintBox}>
+                        <MaterialCommunityIcons name="information-outline" size={14} color="#0891b2" />
+                        <Text style={styles.hintText}>
+                            Tích chọn dịch vụ, sau đó chọn số người tham gia để tính giá
+                        </Text>
+                    </View>
 
-                    {/* Footer */}
-                    {!loading && experiences.length > 0 && (
-                        <View style={styles.footerIos}>
-                            <View style={styles.totalContainer}>
-                                <Text style={styles.totalLabel}>Tổng cộng:</Text>
-                                <Text style={styles.totalPrice}>{fmt(totalPrice)}</Text>
-                            </View>
-                        </View>
-                    )}
+                    {content}
+                    {footer}
                 </Pressable>
             </Pressable>
         </Modal>
@@ -260,7 +264,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.4)",
         justifyContent: "flex-end",
     },
-    androidContainer: {
+    androidSheet: {
         backgroundColor: "#fff",
         minHeight: "82%",
         maxHeight: "96%",
@@ -287,160 +291,115 @@ const styles = StyleSheet.create({
         borderBottomColor: "#e2e8f0",
         backgroundColor: "#f8fafc",
     },
-    headerBtn: {
-        minWidth: 64,
-        alignItems: "center",
-        paddingVertical: 6,
-        paddingHorizontal: 8,
-    },
-    title: {
+    headerBtn: { minWidth: 56, alignItems: "center", paddingVertical: 4 },
+    headerTitle: {
         flex: 1,
         textAlign: "center",
         fontSize: 16,
         fontWeight: "800",
         color: "#0f172a",
     },
-    cancelText: {
-        fontSize: 14,
-        color: "#64748b",
-        fontWeight: "600",
-    },
-    confirmText: {
-        fontSize: 14,
-        color: "#0891b2",
-        fontWeight: "700",
-    },
-    confirmTextDisabled: {
-        color: "#cbd5e1",
-    },
-    content: {
-        flex: 1,
-        paddingVertical: 0,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 14,
-        color: "#64748b",
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    emptyText: {
-        marginTop: 12,
-        fontSize: 14,
-        color: "#94a3b8",
-    },
-    list: {
-        flex: 1,
-    },
-    listContent: {
-        paddingVertical: 8,
-    },
-    itemContainer: {
-        borderBottomWidth: 1,
-        borderBottomColor: "#e2e8f0",
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-    },
-    itemSelected: {
-        backgroundColor: "#ecf9ff",
-    },
-    itemContent: {
+    cancelText: { fontSize: 14, color: "#64748b", fontWeight: "600" },
+    doneText: { fontSize: 14, color: "#0891b2", fontWeight: "700" },
+    doneTextMuted: { color: "#94a3b8" },
+
+    hintBox: {
         flexDirection: "row",
-        alignItems: "flex-start",
-        gap: 12,
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: "#e0f2fe",
+        borderBottomWidth: 1,
+        borderBottomColor: "#bae6fd",
     },
-    checkboxContainer: {
-        paddingTop: 2,
+    hintText: { flex: 1, fontSize: 12, color: "#0369a1", lineHeight: 17 },
+
+    content: { flex: 1 },
+    centerBox: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12, paddingVertical: 40 },
+    centerText: { fontSize: 14, color: "#94a3b8" },
+
+    list: { flex: 1 },
+    listContent: { paddingVertical: 4 },
+
+    itemContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "#f1f5f9",
     },
+    itemSelected: { backgroundColor: "#f0f9ff" },
+    itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+
+    checkboxWrap: { paddingTop: 2 },
     checkbox: {
-        width: 20,
-        height: 20,
-        borderRadius: 4,
+        width: 22,
+        height: 22,
+        borderRadius: 6,
         borderWidth: 2,
         borderColor: "#cbd5e1",
         justifyContent: "center",
         alignItems: "center",
     },
-    checkboxChecked: {
-        backgroundColor: "#0891b2",
-        borderColor: "#0891b2",
-    },
-    itemDetails: {
-        flex: 1,
-    },
-    itemName: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#0f172a",
-    },
-    itemDesc: {
-        fontSize: 13,
-        color: "#64748b",
-        marginTop: 5,
-        fontWeight: "500",
-    },
-    categoryBadge: {
-        alignSelf: "flex-start",
-        marginTop: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        backgroundColor: "#e0f2fe",
-        borderRadius: 4,
-    },
-    categoryText: {
-        fontSize: 12,
-        color: "#0369a1",
-        fontWeight: "500",
-    },
-    priceContainer: {
-        alignItems: "flex-end",
-        paddingLeft: 8,
-    },
-    price: {
-        fontSize: 15,
-        fontWeight: "700",
-        color: "#0891b2",
-    },
-    footer: {
+    checkboxChecked: { backgroundColor: "#0891b2", borderColor: "#0891b2" },
+
+    itemInfo: { flex: 1 },
+    itemName: { fontSize: 14, fontWeight: "700", color: "#0f172a", marginBottom: 3 },
+    itemMeta: { fontSize: 13, color: "#64748b" },
+    itemPrice: { fontSize: 13, fontWeight: "700", color: "#0891b2" },
+    itemUnit: { fontSize: 12, color: "#94a3b8" },
+    itemDesc: { fontSize: 12, color: "#94a3b8", marginTop: 4, lineHeight: 17 },
+
+    qtyRow: {
         flexDirection: "row",
-        gap: 12,
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        alignItems: "center",
+        gap: 8,
+        backgroundColor: "#fff",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#cffafe",
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+    },
+    qtyBtn: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        backgroundColor: "#e0f2fe",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    qtyBtnDisabled: { backgroundColor: "#f1f5f9" },
+    qtyDisplay: { alignItems: "center", minWidth: 32 },
+    qtyText: { fontSize: 16, fontWeight: "800", color: "#0f172a" },
+    qtyLabel: { fontSize: 10, color: "#64748b", fontWeight: "500" },
+
+    subtotalRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 10,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: "#e0f2fe",
+    },
+    subtotalLabel: { fontSize: 12, color: "#0369a1", fontWeight: "500" },
+    subtotalPrice: { fontSize: 13, fontWeight: "700", color: "#0891b2" },
+
+    footer: {
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         borderTopWidth: 1,
         borderTopColor: "#e2e8f0",
         backgroundColor: "#f8fafc",
+        gap: 10,
     },
-    footerIos: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderTopWidth: 1,
-        borderTopColor: "#e2e8f0",
-        backgroundColor: "#f8fafc",
-    },
-    totalContainer: {
+    totalRow: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
     },
-    totalLabel: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#64748b",
-    },
-    totalPrice: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#0891b2",
-    },
-    confirmBtn: {
-        marginTop: 8,
-    },
+    totalLabel: { fontSize: 13, color: "#64748b", fontWeight: "600" },
+    totalPrice: { fontSize: 16, fontWeight: "800", color: "#0891b2" },
+    confirmBtn: {},
 });

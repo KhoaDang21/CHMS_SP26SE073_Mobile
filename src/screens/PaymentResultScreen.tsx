@@ -1,4 +1,4 @@
-import { Button, Header, LoadingIndicator } from "@/components";
+import { Button, LoadingIndicator } from "@/components";
 import { bookingService } from "@/service/booking/bookingService";
 import { paymentService } from "@/service/payment/paymentService";
 import { colors } from "@/utils/colors";
@@ -9,6 +9,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -167,7 +168,11 @@ export default function PaymentResultScreen() {
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
-                <Header showBack title="" />
+                <View style={styles.pageHeader}>
+                    <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                        <MaterialCommunityIcons name="arrow-left" size={22} color="#1e293b" />
+                    </TouchableOpacity>
+                </View>
                 <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 16 }}>
                     <LoadingIndicator />
                     <Text style={{ fontSize: 14, color: colors.text.secondary }}>
@@ -180,7 +185,11 @@ export default function PaymentResultScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <Header showBack title="" />
+            <View style={styles.pageHeader}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                    <MaterialCommunityIcons name="arrow-left" size={22} color="#1e293b" />
+                </TouchableOpacity>
+            </View>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Status Icon */}
                 <View style={[styles.statusContainer, { backgroundColor: info.bgColor }]}>
@@ -310,7 +319,24 @@ export default function PaymentResultScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#f5f5f5" },
-    scrollContent: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 16 },
+    pageHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: "#f5f5f5",
+    },
+    backBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: "#fff",
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+    },
+    scrollContent: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 24 },
     statusContainer: {
         width: 120,
         height: 120,

@@ -2,20 +2,54 @@ import { apiClient } from "@/service/api/apiClient";
 import { apiConfig } from "@/service/constants/apiConfig";
 import type { Experience } from "@/types";
 
-const mapExperience = (item: any): Experience => ({
-  id: String(item.id ?? item.Id ?? ""),
-  name: item.name ?? item.Name ?? "",
-  description: item.description ?? item.Description,
-  price: Number(item.price ?? item.Price ?? 0),
-  category: item.category ?? item.Category,
-  image: item.image ?? item.Image,
-});
+const mapExperience = (item: any): Experience => {
+  const statusRaw = String(item?.status ?? item?.Status ?? "").toUpperCase();
+  const isActiveByStatus = statusRaw ? statusRaw === "ACTIVE" : undefined;
+
+  return {
+    id: String(item?.id ?? item?.Id ?? ""),
+    homestayId: String(item?.homestayId ?? item?.HomestayId ?? ""),
+    name: String(item?.name ?? item?.Name ?? ""),
+    description: item?.description ?? item?.Description ?? "",
+    price: Number(item?.price ?? item?.Price ?? 0),
+    unit: item?.unit ?? item?.Unit ?? "",
+    category: item?.categoryName ?? item?.CategoryName ?? item?.category ?? item?.Category ?? "",
+    categoryId: String(item?.categoryId ?? item?.CategoryId ?? ""),
+    image: item?.imageUrl ?? item?.ImageUrl ?? item?.image ?? item?.Image ?? "",
+    isActive: (item?.isActive ?? item?.IsActive ?? isActiveByStatus ?? true) === true,
+  };
+};
 
 /**
  * Experience/Local Experiences Service
  * Handles fetching available experiences/services that customers can add to bookings
  */
 export const experienceService = {
+  /**
+   * GET /api/experiences?homestayId={id} — Get experiences by homestay
+   * BE DAL chưa filter theo homestayId nên filter thêm ở client
+   */
+  async getByHomestay(homestayId: string): Promise<Experience[]> {
+    try {
+      const res = await apiClient.get<any>(
+        apiConfig.endpoints.experiences.listByHomestay(homestayId),
+      );
+      const list = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.data?.items)
+          ? res.data.items
+          : Array.isArray(res)
+            ? res
+            : [];
+      return list
+        .map(mapExperience)
+        .filter((e) => e.isActive !== false && String(e.homestayId) === String(homestayId));
+    } catch (e) {
+      console.warn("[experienceService.getByHomestay] Error:", e);
+      return [];
+    }
+  },
+
   /**
    * GET /api/experiences — Get all available experiences
    */

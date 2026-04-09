@@ -47,6 +47,27 @@ function InfoRow({ icon, label, value, valueColor }: { icon: string; label: stri
   );
 }
 
+// Helper to parse experiences from specialRequests
+function parseExperiencesFromSpecialRequests(specialRequests: string | undefined) {
+  if (!specialRequests) return null;
+
+  try {
+    // Look for [EXPERIENCES_JSON] marker
+    const match = specialRequests.match(/\[EXPERIENCES_JSON\](.+)$/);
+    if (!match) return null;
+
+    const jsonStr = match[1];
+    const data = JSON.parse(jsonStr);
+
+    if (data.items && Array.isArray(data.items)) {
+      return data.items as Array<{ id: string; name: string; price: number; qty: number }>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function TimelineStep({ step, label, sublabel, done, active }: { step: number; label: string; sublabel?: string; done: boolean; active: boolean }) {
   return (
     <View style={styles.timelineStep}>
@@ -313,9 +334,34 @@ export default function BookingDetailScreen() {
                 <Divider style={{ marginVertical: 8 }} />
                 <View style={styles.infoRow}>
                   <MaterialCommunityIcons name="note-text-outline" size={16} color="#64748b" />
-                  <Text style={styles.infoLabel}>Yêu cầu đặc biệt</Text>
+                  <Text style={styles.infoLabel}>Dịch vụ bổ sung</Text>
                 </View>
-                <Text style={styles.specialRequestText}>{booking.specialRequests}</Text>
+                {(() => {
+                  const experiences = parseExperiencesFromSpecialRequests(booking.specialRequests);
+                  if (experiences && experiences.length > 0) {
+                    return (
+                      <View style={styles.experiencesContainer}>
+                        {experiences.map((exp, idx) => (
+                          <View key={exp.id || idx} style={styles.experienceItem}>
+                            <View style={styles.experienceInfo}>
+                              <Text style={styles.experienceName}>{exp.name}</Text>
+                              <Text style={styles.experienceQty}>Số lượng: {exp.qty}</Text>
+                            </View>
+                            <Text style={styles.experiencePrice}>
+                              {(exp.price * exp.qty).toLocaleString("vi-VN", {
+                                style: "currency",
+                                currency: "VND",
+                                maximumFractionDigits: 0,
+                              })}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  }
+                  // Fallback to raw text if not in expected format
+                  return <Text style={styles.specialRequestText}>{booking.specialRequests}</Text>;
+                })()}
               </>
             )}
           </View>
@@ -577,6 +623,13 @@ const styles = StyleSheet.create({
   infoLabel: { flex: 1, fontSize: 13, color: "#64748b" },
   infoValue: { fontSize: 13, fontWeight: "700", color: "#0f172a" },
   specialRequestText: { fontSize: 13, color: "#475569", lineHeight: 20, marginTop: 6, marginLeft: 26 },
+
+  experiencesContainer: { marginTop: 8, marginLeft: 26 },
+  experienceItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, paddingHorizontal: 10, backgroundColor: "#f1f5f9", borderRadius: 8, marginBottom: 6 },
+  experienceInfo: { flex: 1 },
+  experienceName: { fontSize: 13, fontWeight: "600", color: "#0f172a", marginBottom: 2 },
+  experienceQty: { fontSize: 12, color: "#64748b" },
+  experiencePrice: { fontSize: 13, fontWeight: "700", color: "#0f172a", minWidth: 80, textAlign: "right" },
 
   priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   priceRowLabel: { fontSize: 13, color: "#64748b" },

@@ -94,6 +94,8 @@ export const apiConfig = {
     },
     experiences: {
       list: "/api/experiences",
+      listByHomestay: (homestayId: string) =>
+        `/api/experiences?homestayId=${homestayId}`,
       listByCategory: (category: string) =>
         `/api/experiences?category=${category}`,
       detail: (id: string) => `/api/experiences/${id}`,

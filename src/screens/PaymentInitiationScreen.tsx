@@ -35,20 +35,38 @@ export default function PaymentInitiationScreen() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      bookingService.getBookingDetail(bookingId).then((data) => {
-        if (data) {
-          setBooking(data);
-          // Also load homestay info for detailed price breakdown
-          if (data.homestayId) {
-            publicHomestayService.getById(data.homestayId).then(setHomestay).catch(() => { });
-          }
+    const loadData = async () => {
+      // If booking already passed from params, no need to fetch
+      if (booking && booking.id) {
+        // Load homestay info
+        if (booking.homestayId) {
+          publicHomestayService.getById(booking.homestayId).then(setHomestay).catch(() => { });
         }
-      }),
-      extraChargeService.getByBooking(bookingId).then((charges) => setExtraCharges(charges)).catch(() => setExtraCharges([])),
-    ])
-      .catch(() => showToast("Không thể tải chi tiết đặt phòng", "error"))
-      .finally(() => setLoading(false));
+      } else {
+        // Fallback: fetch if not passed (shouldn't happen with correct navigation)
+        let bookingData = await bookingService.getBookingDetail(bookingId);
+        if (bookingData) {
+          setBooking(bookingData);
+          if (bookingData.homestayId) {
+            publicHomestayService.getById(bookingData.homestayId).then(setHomestay).catch(() => { });
+          }
+        } else {
+          showToast("Không thể tải chi tiết đặt phòng", "error");
+        }
+      }
+
+      // Load extra charges
+      try {
+        const charges = await extraChargeService.getByBooking(bookingId);
+        setExtraCharges(charges);
+      } catch (err) {
+        setExtraCharges([]);
+      }
+
+      setLoading(false);
+    };
+
+    loadData();
   }, [bookingId]);
 
   // Xác định đây là thanh toán cọc hay còn lại — giống FE
@@ -82,7 +100,9 @@ export default function PaymentInitiationScreen() {
         returnUrl,
       });
       if (res?.checkoutUrl) {
-        await WebBrowser.openBrowserAsync(res.checkoutUrl);
+        const result = await WebBrowser.openAuthSessionAsync(res.checkoutUrl, returnUrl);
+        // openAuthSessionAsync tự đóng khi nhận deep link redirect
+        // result.type === "success" khi redirect về returnUrl, "cancel" khi user tự đóng
         navigation.navigate("PaymentResult", { bookingId: booking.id });
       } else {
         showToast("Không thể tạo link thanh toán", "error");
