@@ -438,6 +438,22 @@ export default function HomeScreen() {
         }
         ListFooterComponent={() => (
           <View style={styles.footerSection}>
+            {/* Dịch vụ địa phương banner */}
+            <TouchableOpacity
+              style={styles.experiencesBanner}
+              onPress={() => navigation.navigate("LocalExperiences" as never)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.experiencesBannerLeft}>
+                <MaterialCommunityIcons name="spa" size={28} color="#0891b2" />
+                <View>
+                  <Text style={styles.experiencesBannerTitle}>Dịch vụ địa phương</Text>
+                  <Text style={styles.experiencesBannerDesc}>Khám phá trải nghiệm quanh homestay</Text>
+                </View>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={22} color="#0891b2" />
+            </TouchableOpacity>
+
             {/* Quick links */}
             <View style={styles.footerGrid}>
               <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate("MainTabs" as never, { screen: "Bookings" } as never)}>
@@ -635,6 +651,14 @@ const styles = StyleSheet.create({
   footerSection: {
     backgroundColor: "#0f172a", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24,
   },
+  experiencesBanner: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: "#e0f2fe", borderRadius: 16, padding: 16, marginBottom: 20,
+    borderWidth: 1, borderColor: "#bae6fd",
+  },
+  experiencesBannerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  experiencesBannerTitle: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
+  experiencesBannerDesc: { fontSize: 12, color: "#0369a1", marginTop: 2 },
   footerGrid: {
     flexDirection: "row", justifyContent: "space-around", marginBottom: 20,
   },

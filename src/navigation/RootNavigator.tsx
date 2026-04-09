@@ -10,6 +10,7 @@ import {
   HomeScreen,
   HomestayDetailScreen,
   LandingScreen,
+  LocalExperiencesScreen,
   LoginScreen,
   NotificationPreferencesScreen,
   NotificationsScreen,
@@ -26,8 +27,9 @@ import {
 import { tokenStorage } from "@/service/auth/tokenStorage";
 import { colors } from "@/utils/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -38,7 +40,8 @@ export type RootStackParamList = {
   HomestayDetail: { id: string };
   BookingDetail: { bookingId: string };
   BookingEdit: { bookingId: string };
-  PaymentInitiation: { bookingId: string };
+  PaymentInitiation: { bookingId: string; booking?: any };
+  LocalExperiences: undefined;
   Reviews: undefined;
   Notifications: undefined;
   NotificationPreferences: undefined;
@@ -59,6 +62,78 @@ export type AuthStackParamList = {
   ResetPassword: { email: string };
   About: undefined;
   Contact: undefined;
+};
+
+const prefix = Linking.createURL("/");
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [prefix, "chmssp26se073mobile://"],
+  config: {
+    screens: {
+      AuthStack: "auth",
+      MainTabs: "main",
+      HomestayDetail: {
+        path: "homestay/:id",
+        parse: {
+          id: (id) => id,
+        },
+      },
+      BookingDetail: {
+        path: "booking/:bookingId",
+        parse: {
+          bookingId: (bookingId) => bookingId,
+        },
+      },
+      BookingEdit: {
+        path: "booking/:bookingId/edit",
+        parse: {
+          bookingId: (bookingId) => bookingId,
+        },
+      },
+      PaymentInitiation: {
+        path: "payment-initiation/:bookingId",
+        parse: {
+          bookingId: (bookingId) => bookingId,
+        },
+      },
+      PaymentResult: {
+        path: "payment-result",
+      },
+      Reviews: "reviews",
+      LocalExperiences: "experiences",
+      Notifications: "notifications",
+      NotificationPreferences: "notification-preferences",
+      Support: "support",
+      Chat: "chat",
+      Contact: "contact",
+      CreateReview: {
+        path: "review/create/:bookingId",
+        parse: {
+          bookingId: (bookingId) => bookingId,
+        },
+      },
+    },
+  },
+  async getInitialURL() {
+    // Handle deep link from cold start (app not running)
+    const url = await Linking.getInitialURL();
+    if (url != null) {
+      return url;
+    }
+    return undefined;
+  },
+  subscribe(listener) {
+    // Listen to incoming links from deep linking
+    const onReceiveURL = ({ url }: { url: string }) => {
+      listener(url);
+    };
+
+    const subscription = Linking.addEventListener("url", onReceiveURL);
+
+    return () => {
+      subscription.remove();
+    };
+  },
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -212,7 +287,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} fallback={null}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!authenticated ? (
           <Stack.Screen name="AuthStack">
@@ -250,6 +325,10 @@ export default function RootNavigator() {
               <Stack.Screen
                 name="PaymentResult"
                 component={PaymentResultScreen}
+              />
+              <Stack.Screen
+                name="LocalExperiences"
+                component={LocalExperiencesScreen}
               />
             </Stack.Group>
 

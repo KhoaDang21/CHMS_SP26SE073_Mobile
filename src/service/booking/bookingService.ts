@@ -84,9 +84,11 @@ export const bookingService = {
       // Handle cả camelCase (data) và PascalCase (Data) từ BE
       const raw = (r?.data ?? r?.Data ?? r) as Record<string, unknown>;
       const mapped = mapBooking(raw);
-      if (!mapped.id) return null;
+      if (!mapped.id) {
+        return null;
+      }
       return mapped;
-    } catch {
+    } catch (err: any) {
       return null;
     }
   },
@@ -100,23 +102,35 @@ export const bookingService = {
     specialRequests?: string;
     promotionId?: string;
   }) {
-    const res = await apiClient.post<Record<string, unknown>>(
-      apiConfig.endpoints.bookings.create,
-      payload,
-    );
-    const bookingData = res?.data;
-    const success = Boolean(res?.success ?? true);
-    const message = String(res?.message ?? "Đặt phòng thành công!");
-    return {
-      success,
-      message,
-      data:
-        bookingData &&
-        typeof bookingData === "object" &&
-        !Array.isArray(bookingData)
-          ? mapBooking(bookingData as Record<string, unknown>)
-          : undefined,
-    };
+    try {
+      const res = await apiClient.post<Record<string, unknown>>(
+        apiConfig.endpoints.bookings.create,
+        payload,
+      );
+
+      const bookingData = res?.data;
+      // Check both success field and code field (0 = success in some APIs)
+      const success =
+        res?.success !== false && (res?.code === undefined || res?.code === 0);
+      const message = String(res?.message ?? "Đặt phòng thành công!");
+
+      return {
+        success,
+        message,
+        data:
+          bookingData &&
+          typeof bookingData === "object" &&
+          !Array.isArray(bookingData)
+            ? mapBooking(bookingData as Record<string, unknown>)
+            : undefined,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || "Đặt phòng thất bại",
+        data: undefined,
+      };
+    }
   },
 
   async modifyBooking(

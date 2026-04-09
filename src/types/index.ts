@@ -65,8 +65,12 @@ export interface Experience {
   name: string;
   description?: string;
   price: number;
+  unit?: string;
   category?: string;
+  categoryId?: string;
+  homestayId?: string;
   image?: string;
+  isActive?: boolean;
 }
 
 export interface ExtraCharge {

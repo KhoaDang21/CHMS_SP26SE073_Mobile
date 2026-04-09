@@ -9,6 +9,7 @@ export { default as ForgotPasswordScreen } from "@/screens/ForgotPasswordScreen"
 export { default as HomeScreen } from "@/screens/HomeScreen";
 export { default as HomestayDetailScreen } from "@/screens/HomestayDetailScreen";
 export { default as LandingScreen } from "@/screens/LandingScreen";
+export { default as LocalExperiencesScreen } from "@/screens/LocalExperiencesScreen";
 export { default as LoginScreen } from "@/screens/LoginScreen";
 export { default as NotificationPreferencesScreen } from "@/screens/NotificationPreferencesScreen";
 export { default as NotificationsScreen } from "@/screens/NotificationsScreen";
