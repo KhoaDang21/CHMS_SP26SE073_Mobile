@@ -7,11 +7,12 @@ import {
     TouchableOpacity,
     View,
     ViewStyle,
+    StyleProp,
 } from "react-native";
 
 interface CardProps {
     children: React.ReactNode;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
     onPress?: () => void;
 }
 

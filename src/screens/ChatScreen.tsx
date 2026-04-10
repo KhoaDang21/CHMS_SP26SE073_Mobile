@@ -7,6 +7,7 @@ import { aiService } from "@/service/ai/aiService";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     FlatList,
@@ -14,10 +15,11 @@ import {
     Platform,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Message {
     id: string;
@@ -27,6 +29,8 @@ interface Message {
 }
 
 export default function ChatScreen() {
+    const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
@@ -142,7 +146,7 @@ export default function ChatScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container} edges={["bottom"]}>
+            <SafeAreaView style={styles.container} edges={[]}>
                 <Header title="AI Chat" showBack={false} />
                 <LoadingIndicator />
             </SafeAreaView>
@@ -150,8 +154,15 @@ export default function ChatScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={["bottom"]}>
-            <Header title="AI Chat - Trợ Lý Booking" showBack={false} />
+        <SafeAreaView style={styles.container} edges={[]}>
+            <Header
+                title="AI Chat"
+                showBack={false}
+                rightAction={{
+                    icon: "trash-can-outline",
+                    onPress: handleClearHistory,
+                }}
+            />
 
             <FlatList
                 ref={flatListRef}
@@ -164,24 +175,31 @@ export default function ChatScreen() {
                             item.sender === "user" ? styles.userBubble : styles.aiBubble,
                         ]}
                     >
-                        <View
-                            style={[
-                                styles.bubble,
-                                item.sender === "user" ? styles.userMessage : styles.aiMessage,
-                            ]}
-                        >
-                            <Text
+                        <View style={styles.bubbleWrapper}>
+                            {item.sender === "ai" && (
+                                <View style={styles.aiAvatar}>
+                                    <MaterialCommunityIcons name="robot" size={16} color="#fff" />
+                                </View>
+                            )}
+                            <View
                                 style={[
-                                    styles.messageText,
-                                    item.sender === "user"
-                                        ? styles.userMessageText
-                                        : styles.aiMessageText,
+                                    styles.bubble,
+                                    item.sender === "user" ? styles.userMessage : styles.aiMessage,
                                 ]}
                             >
-                                {item.text}
-                            </Text>
+                                <Text
+                                    style={[
+                                        styles.messageText,
+                                        item.sender === "user"
+                                            ? styles.userMessageText
+                                            : styles.aiMessageText,
+                                    ]}
+                                >
+                                    {item.text}
+                                </Text>
+                            </View>
                         </View>
-                        <Text style={styles.timestamp}>
+                        <Text style={[styles.timestamp, item.sender === "user" && { textAlign: "right" }]}>
                             {item.timestamp.toLocaleTimeString("vi-VN", {
                                 hour: "2-digit",
                                 minute: "2-digit",
@@ -192,20 +210,29 @@ export default function ChatScreen() {
                 ListHeaderComponent={
                     messages.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <MaterialCommunityIcons
-                                name="robot-happy-outline"
-                                size={64}
-                                color="#cbd5e1"
-                            />
-                            <Text style={styles.emptyTitle}>Chào mừng bạn!</Text>
+                            <View style={styles.emptyIconContainer}>
+                                <MaterialCommunityIcons
+                                    name="robot-happy-outline"
+                                    size={48}
+                                    color="#0891b2"
+                                />
+                            </View>
+                            <Text style={styles.emptyTitle}>Xin chào! Tôi có thể giúp gì?</Text>
                             <Text style={styles.emptyDesc}>
-                                Tôi là AI tư vấn của CHMS. Hỏi tôi bất cứ điều gì về:
+                                Tôi là trợ lý AI thông minh của CHMS. Hãy hỏi tôi bất cứ điều gì về:
                             </Text>
-                            <View style={styles.featureList}>
-                                <Text style={styles.featureItem}>✓ Tìm kiếm homestay</Text>
-                                <Text style={styles.featureItem}>✓ Hỗ trợ đặt phòng</Text>
-                                <Text style={styles.featureItem}>✓ Tư vấn giá cả</Text>
-                                <Text style={styles.featureItem}>✓ Gợi ý địa điểm</Text>
+                            <View style={styles.featureGrid}>
+                                {[
+                                    { icon: "home-search", label: "Tìm homestay" },
+                                    { icon: "calendar-check", label: "Đặt phòng" },
+                                    { icon: "tag-outline", label: "Giá ưu đãi" },
+                                    { icon: "map-marker-radius", label: "Gợi ý địa điểm" },
+                                ].map((feat, i) => (
+                                    <View key={i} style={styles.featureChip}>
+                                        <MaterialCommunityIcons name={feat.icon as any} size={16} color="#0891b2" />
+                                        <Text style={styles.featureChipText}>{feat.label}</Text>
+                                    </View>
+                                ))}
                             </View>
                         </View>
                     ) : null
@@ -223,63 +250,44 @@ export default function ChatScreen() {
                         activeOpacity={0.7}
                     >
                         <MaterialCommunityIcons
-                            name="lightbulb-outline"
+                            name="creation"
                             size={18}
-                            color="#0891b2"
+                            color="#fff"
                         />
-                        <Text style={styles.quickActionText}>Nhận Gợi Ý</Text>
+                        <Text style={styles.quickActionText}>Nhận Gợi Ý Homestay Ngay</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
             {/* Input Area */}
             <KeyboardAvoidingView
-                style={styles.inputContainer}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
             >
-                <View style={styles.inputWrapper}>
-                    <Input
-                        placeholder="Nhập tin nhắn..."
-                        value={inputText}
-                        onChangeText={setInputText}
-                        multiline
-                        numberOfLines={1}
-                        editable={!sending}
-                        style={styles.input}
-                    />
-                    <TouchableOpacity
-                        style={[styles.sendButton, (sending || !inputText.trim()) && styles.sendButtonDisabled]}
-                        onPress={handleSendMessage}
-                        disabled={sending || !inputText.trim()}
-                        activeOpacity={0.7}
-                    >
-                        {sending ? (
-                            <MaterialCommunityIcons
-                                name="loading"
-                                size={20}
-                                color="#fff"
-                            />
-                        ) : (
-                            <MaterialCommunityIcons name="send" size={20} color="#fff" />
-                        )}
-                    </TouchableOpacity>
-                </View>
-
-                {/* Bottom Actions */}
-                <View style={styles.bottomActions}>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleClearHistory}
-                        activeOpacity={0.7}
-                    >
-                        <MaterialCommunityIcons
-                            name="trash-can-outline"
-                            size={16}
-                            color="#ef4444"
+                <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={styles.msgInput}
+                            placeholder="Hỏi AI bất cứ điều gì..."
+                            value={inputText}
+                            onChangeText={setInputText}
+                            multiline
+                            placeholderTextColor="#94a3b8"
+                            editable={!sending}
                         />
-                        <Text style={styles.actionButtonText}>Xóa Chat</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.sendButton, (sending || !inputText.trim()) && styles.sendButtonDisabled]}
+                            onPress={handleSendMessage}
+                            disabled={sending || !inputText.trim()}
+                            activeOpacity={0.8}
+                        >
+                            {sending ? (
+                                <MaterialCommunityIcons name="loading" size={20} color="#fff" />
+                            ) : (
+                                <MaterialCommunityIcons name="send" size={20} color="#fff" />
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -292,66 +300,117 @@ const styles = StyleSheet.create({
         backgroundColor: "#f8fafc",
     },
     messagesList: {
-        paddingHorizontal: 12,
-        paddingVertical: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 20,
         flexGrow: 1,
-        justifyContent: "flex-start",
     },
     emptyState: {
         alignItems: "center",
-        marginTop: 60,
-        marginBottom: 40,
+        marginTop: 40,
+        marginBottom: 20,
+        paddingHorizontal: 20,
+    },
+    emptyIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "#e0f2fe",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 20,
     },
     emptyTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#1e293b",
-        marginTop: 16,
-        marginBottom: 8,
+        fontSize: 22,
+        fontWeight: "800",
+        color: "#0f172a",
+        textAlign: "center",
+        marginBottom: 10,
     },
     emptyDesc: {
-        fontSize: 14,
+        fontSize: 15,
         color: "#64748b",
-        marginBottom: 16,
+        marginBottom: 24,
         textAlign: "center",
+        lineHeight: 22,
     },
-    featureList: {
+    featureGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 10,
+        justifyContent: "center",
+    },
+    featureChip: {
+        flexDirection: "row",
+        alignItems: "center",
         gap: 6,
-    },
-    featureItem: {
-        fontSize: 13,
-        color: "#64748b",
-    },
-    messageBubble: {
-        marginBottom: 12,
-        alignItems: "flex-start",
-    },
-    userBubble: {
-        alignItems: "flex-end",
-    },
-    aiBubble: {
-        alignItems: "flex-start",
-    },
-    bubble: {
-        maxWidth: "80%",
         paddingHorizontal: 12,
         paddingVertical: 8,
+        backgroundColor: "#fff",
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    featureChipText: {
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#334155",
+    },
+    messageBubble: {
+        marginBottom: 16,
+        maxWidth: "85%",
+    },
+    userBubble: {
+        alignSelf: "flex-end",
+    },
+    aiBubble: {
+        alignSelf: "flex-start",
+    },
+    bubbleWrapper: {
+        flexDirection: "row",
+        alignItems: "flex-end",
+        gap: 8,
+    },
+    aiAvatar: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: "#0891b2",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 4,
+    },
+    bubble: {
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 18,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
     },
     userMessage: {
         backgroundColor: "#0891b2",
-        borderBottomRightRadius: 0,
+        borderBottomRightRadius: 4,
     },
     aiMessage: {
-        backgroundColor: "#e2e8f0",
-        borderBottomLeftRadius: 0,
+        backgroundColor: "#fff",
+        borderBottomLeftRadius: 4,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
     },
     messageText: {
-        fontSize: 14,
-        lineHeight: 20,
+        fontSize: 15,
+        lineHeight: 22,
     },
     userMessageText: {
         color: "#fff",
+        fontWeight: "500",
     },
     aiMessageText: {
         color: "#1e293b",
@@ -359,71 +418,74 @@ const styles = StyleSheet.create({
     timestamp: {
         fontSize: 11,
         color: "#94a3b8",
-        marginTop: 4,
-        marginHorizontal: 12,
+        marginTop: 6,
+        marginHorizontal: 4,
     },
     quickActions: {
-        paddingHorizontal: 12,
-        paddingBottom: 12,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
     quickActionButton: {
         flexDirection: "row",
-        gap: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: "#f0f9ff",
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: "#bfdbfe",
+        gap: 10,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        backgroundColor: "#0891b2",
+        borderRadius: 16,
         alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#0891b2",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     quickActionText: {
-        fontSize: 13,
-        fontWeight: "500",
-        color: "#0891b2",
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#fff",
     },
     inputContainer: {
-        paddingHorizontal: 12,
-        paddingVertical: 12,
+        paddingHorizontal: 16,
+        paddingTop: 12,
         backgroundColor: "#fff",
         borderTopWidth: 1,
-        borderTopColor: "#e2e8f0",
+        borderTopColor: "#f1f5f9",
     },
     inputWrapper: {
         flexDirection: "row",
-        gap: 8,
+        gap: 10,
         alignItems: "flex-end",
     },
-    input: {
+    msgInput: {
         flex: 1,
-        maxHeight: 100,
+        backgroundColor: "#f8fafc",
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        paddingTop: 10,
+        fontSize: 15,
+        color: "#1e293b",
+        maxHeight: 120,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
     },
     sendButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: "#0891b2",
         justifyContent: "center",
         alignItems: "center",
+        shadowColor: "#0891b2",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
     },
     sendButtonDisabled: {
-        opacity: 0.5,
-    },
-    bottomActions: {
-        flexDirection: "row",
-        justifyContent: "center",
-        paddingTop: 8,
-    },
-    actionButton: {
-        flexDirection: "row",
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        alignItems: "center",
-    },
-    actionButtonText: {
-        fontSize: 12,
-        color: "#ef4444",
-        fontWeight: "500",
+        backgroundColor: "#cbd5e1",
+        shadowOpacity: 0,
+        elevation: 0,
     },
 });
