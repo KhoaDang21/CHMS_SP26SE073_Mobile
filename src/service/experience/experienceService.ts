@@ -13,10 +13,16 @@ const mapExperience = (item: any): Experience => {
     description: item?.description ?? item?.Description ?? "",
     price: Number(item?.price ?? item?.Price ?? 0),
     unit: item?.unit ?? item?.Unit ?? "",
-    category: item?.categoryName ?? item?.CategoryName ?? item?.category ?? item?.Category ?? "",
+    category:
+      item?.categoryName ??
+      item?.CategoryName ??
+      item?.category ??
+      item?.Category ??
+      "",
     categoryId: String(item?.categoryId ?? item?.CategoryId ?? ""),
     image: item?.imageUrl ?? item?.ImageUrl ?? item?.image ?? item?.Image ?? "",
-    isActive: (item?.isActive ?? item?.IsActive ?? isActiveByStatus ?? true) === true,
+    isActive:
+      (item?.isActive ?? item?.IsActive ?? isActiveByStatus ?? true) === true,
   };
 };
 
@@ -43,9 +49,12 @@ export const experienceService = {
             : [];
       return list
         .map(mapExperience)
-        .filter((e) => e.isActive !== false && String(e.homestayId) === String(homestayId));
-    } catch (e) {
-      console.warn("[experienceService.getByHomestay] Error:", e);
+        .filter(
+          (e: Experience) =>
+            e.isActive !== false && String(e.homestayId) === String(homestayId),
+        );
+    } catch (error) {
+      console.warn("[experienceService.getByHomestay] Error:", error);
       return [];
     }
   },
@@ -66,8 +75,8 @@ export const experienceService = {
             ? res
             : [];
       return list.map(mapExperience);
-    } catch (e) {
-      console.warn("[experienceService.getAll] Error:", e);
+    } catch (error) {
+      console.warn("[experienceService.getAll] Error:", error);
       return [];
     }
   },
@@ -88,8 +97,8 @@ export const experienceService = {
             ? res
             : [];
       return list.map(mapExperience);
-    } catch (e) {
-      console.warn("[experienceService.getByCategory] Error:", e);
+    } catch (error) {
+      console.warn("[experienceService.getByCategory] Error:", error);
       return [];
     }
   },

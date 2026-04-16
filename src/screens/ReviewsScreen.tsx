@@ -20,9 +20,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ReviewsScreen() {
+    const insets = useSafeAreaInsets();
     const [items, setItems] = useState<Review[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -82,161 +83,145 @@ export default function ReviewsScreen() {
         [editComment]
     );
 
-    const StarRating = ({ rating }: { rating: number }) => (
-        <View style={styles.starContainer}>
-            {[1, 2, 3, 4, 5].map((star) => (
-                <MaterialCommunityIcons
-                    key={star}
-                    name={star <= rating ? "star" : "star-outline"}
-                    size={14}
-                    color="#fbbf24"
-                    style={styles.star}
-                />
-            ))}
-        </View>
-    );
-
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <Header title="Các Review Của Tôi" />
+            <SafeAreaView style={styles.container} edges={[]}>
+                <Header title="Đánh giá của tôi" />
                 <LoadingIndicator />
             </SafeAreaView>
         );
     }
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <Header title="Các Review Của Tôi" />
+    return (<SafeAreaView style={styles.container} edges={[]}>
+        <Header title="Đánh giá của tôi" />
 
-            <FlatList
-                data={items}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <Card style={styles.reviewCard}>
-                        {/* Header */}
-                        <View style={styles.reviewHeader}>
-                            <View style={styles.homestayInfo}>
-                                <Text style={styles.homestayName} numberOfLines={2}>
-                                    {item.homestayName}
+        <FlatList
+            data={items}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+                <View style={styles.reviewCard}>
+                    {/* Header */}
+                    <View style={styles.reviewHeader}>
+                        <View style={styles.homestayInfo}>
+                            <Text style={styles.homestayName} numberOfLines={2}>
+                                {item.homestayName}
+                            </Text>
+                            <View style={styles.badgeRow}>
+                                {item.isVerified && (
+                                    <View style={styles.verifiedBadge}>
+                                        <MaterialCommunityIcons
+                                            name="check-decagram"
+                                            size={14}
+                                            color="#059669"
+                                        />
+                                        <Text style={styles.verifiedText}>Đã ở</Text>
+                                    </View>
+                                )}
+                                <Text style={styles.createdAt}>
+                                    {new Date(item.createdAt).toLocaleDateString("vi-VN")}
                                 </Text>
-                                <View style={styles.badgeRow}>
-                                    {item.isVerified && (
-                                        <View style={styles.verifiedBadge}>
-                                            <MaterialCommunityIcons
-                                                name="check-circle"
-                                                size={12}
-                                                color="#22c55e"
-                                            />
-                                            <Text style={styles.verifiedText}>Đã xác minh</Text>
-                                        </View>
-                                    )}
-                                    <Text style={styles.createdAt}>
-                                        {new Date(item.createdAt).toLocaleDateString("vi-VN")}
-                                    </Text>
-                                </View>
                             </View>
-                            <TouchableOpacity
-                                style={styles.menuButton}
-                                onPress={() => setEditingId(editingId === item.id ? null : item.id)}
-                                activeOpacity={0.7}
-                            >
-                                <MaterialCommunityIcons name="dots-vertical" size={20} color="#6b7280" />
-                            </TouchableOpacity>
                         </View>
-
-                        <Divider style={styles.divider} />
-
-                        {/* Ratings */}
-                        <View style={styles.ratingGrid}>
-                            <RatingItem label="Tổng thể" rating={item.overallRating} />
-                            <RatingItem label="Sạch sẽ" rating={item.cleanlinessRating} />
-                            <RatingItem label="Vị trí" rating={item.locationRating} />
-                            <RatingItem label="Giá trị" rating={item.valueRating} />
+                        <View style={styles.ratingBadge}>
+                            <MaterialCommunityIcons name="star" size={14} color="#fff" />
+                            <Text style={styles.ratingBadgeText}>{item.overallRating.toFixed(1)}</Text>
                         </View>
+                    </View>
 
-                        {/* Comment */}
-                        {editingId === item.id ? (
-                            <View>
-                                <Input
-                                    label="Chỉnh sửa bình luận"
-                                    placeholder="Nhập bình luận"
-                                    value={editComment}
-                                    onChangeText={setEditComment}
-                                    multiline
-                                    numberOfLines={3}
-                                />
-                                <View style={styles.actionButtons}>
-                                    <Button
-                                        title="Lưu"
-                                        onPress={() => handleEditSave(item)}
-                                        size="small"
-                                        style={styles.actionButton}
-                                    />
-                                    <Button
-                                        title="Hủy"
-                                        onPress={() => {
-                                            setEditingId(null);
-                                            setEditComment("");
-                                        }}
-                                        variant="outline"
-                                        size="small"
-                                        style={styles.actionButton}
-                                    />
-                                </View>
+                    <Divider style={styles.divider} />
+
+                    {/* Ratings Grid */}
+                    <View style={styles.ratingGrid}>
+                        <RatingItem label="Sạch sẽ" rating={item.cleanlinessRating} />
+                        <RatingItem label="Vị trí" rating={item.locationRating} />
+                        <RatingItem label="Giá trị" rating={item.valueRating} />
+                        <RatingItem label="Giao tiếp" rating={item.communicationRating} />
+                    </View>
+
+                    {/* Comment Section */}
+                    {editingId === item.id ? (
+                        <View style={styles.editSection}>
+                            <Input
+                                placeholder="Chia sẻ trải nghiệm của bạn..."
+                                value={editComment}
+                                onChangeText={setEditComment}
+                                multiline
+                                numberOfLines={4}
+                                style={styles.editInput}
+                            />
+                            <View style={styles.actionButtons}>
+                                <TouchableOpacity
+                                    style={[styles.btn, styles.btnOutline]}
+                                    onPress={() => {
+                                        setEditingId(null);
+                                        setEditComment("");
+                                    }}
+                                >
+                                    <Text style={styles.btnTextOutline}>Hủy</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.btn, styles.btnPrimary]}
+                                    onPress={() => handleEditSave(item)}
+                                >
+                                    <Text style={styles.btnTextPrimary}>Lưu thay đổi</Text>
+                                </TouchableOpacity>
                             </View>
-                        ) : (
-                            <>
-                                {item.comment && (
-                                    <View>
-                                        <Text style={styles.comment}>{item.comment}</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.contentSection}>
+                            {item.comment ? (
+                                <Text style={styles.comment}>{item.comment}</Text>
+                            ) : (
+                                <Text style={styles.noComment}>Không có nội dung bình luận</Text>
+                            )}
+
+                            {item.ownerReply && (
+                                <View style={styles.replySection}>
+                                    <View style={styles.replyHeader}>
+                                        <View style={styles.replyLine} />
+                                        <Text style={styles.replyLabel}>Phản hồi từ chủ nhà</Text>
                                     </View>
-                                )}
-                                {item.ownerReply && (
-                                    <View style={styles.replySection}>
-                                        <View style={styles.replyHeader}>
-                                            <MaterialCommunityIcons name="reply" size={16} color="#0891b2" />
-                                            <Text style={styles.replyLabel}>Trả lời từ chủ nhà</Text>
-                                        </View>
-                                        <Text style={styles.replyText}>{item.ownerReply}</Text>
-                                    </View>
-                                )}
-                                <View style={styles.actionButtons}>
-                                    <TouchableOpacity
-                                        style={styles.actionLink}
-                                        onPress={() => {
-                                            setEditingId(item.id);
-                                            setEditComment(item.comment);
-                                        }}
-                                    >
-                                        <MaterialCommunityIcons name="pencil" size={16} color="#0891b2" />
-                                        <Text style={styles.actionLinkText}>Chỉnh sửa</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.actionLink}
-                                        onPress={() => handleDelete(item.id)}
-                                    >
-                                        <MaterialCommunityIcons name="delete" size={16} color="#ef4444" />
-                                        <Text style={[styles.actionLinkText, { color: "#ef4444" }]}>Xóa</Text>
-                                    </TouchableOpacity>
+                                    <Text style={styles.replyText}>{item.ownerReply}</Text>
                                 </View>
-                            </>
-                        )}
-                    </Card>
-                )}
-                ListEmptyComponent={
-                    <EmptyState
-                        icon="message-off-outline"
-                        title="Chưa có review"
-                        description="Hãy ở lại và đánh giá sự trải nghiệm của bạn"
-                    />
-                }
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-                }
-                contentContainerStyle={items.length === 0 ? styles.emptyContainer : undefined}
-            />
-        </SafeAreaView>
+                            )}
+
+                            <View style={styles.footerActions}>
+                                <TouchableOpacity
+                                    style={styles.actionBtn}
+                                    onPress={() => {
+                                        setEditingId(item.id);
+                                        setEditComment(item.comment);
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="pencil-outline" size={16} color="#64748b" />
+                                    <Text style={styles.actionBtnText}>Sửa</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.actionBtn}
+                                    onPress={() => handleDelete(item.id)}
+                                >
+                                    <MaterialCommunityIcons name="trash-can-outline" size={16} color="#ef4444" />
+                                    <Text style={[styles.actionBtnText, { color: "#ef4444" }]}>Xóa</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+                </View>
+            )}
+            ListEmptyComponent={
+                <EmptyState
+                    icon="star-outline"
+                    title="Chưa có đánh giá nào"
+                    description="Những đánh giá của bạn sẽ giúp ích cho cộng đồng du lịch."
+                />
+            }
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0891b2" />
+            }
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+        />
+    </SafeAreaView>
     );
 }
 
@@ -244,13 +229,13 @@ function RatingItem({ label, rating }: { label: string; rating: number }) {
     return (
         <View style={styles.ratingItem}>
             <Text style={styles.ratingLabel}>{label}</Text>
-            <View style={styles.starContainer}>
+            <View style={styles.starRow}>
                 {[1, 2, 3, 4, 5].map((star) => (
                     <MaterialCommunityIcons
                         key={star}
                         name={star <= rating ? "star" : "star-outline"}
-                        size={12}
-                        color="#fbbf24"
+                        size={10}
+                        color={star <= rating ? "#fbbf24" : "#e2e8f0"}
                     />
                 ))}
             </View>
@@ -259,35 +244,98 @@ function RatingItem({ label, rating }: { label: string; rating: number }) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#f5f5f5" },
-    reviewCard: { marginHorizontal: 16, marginVertical: 8 },
-    reviewHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-    homestayInfo: { flex: 1 },
-    homestayName: { fontSize: 16, fontWeight: "700", color: "#1f2937", marginBottom: 4 },
-    badgeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
-    verifiedText: { fontSize: 12, color: "#22c55e", fontWeight: "600" },
-    createdAt: { fontSize: 12, color: "#9ca3af" },
-    menuButton: { padding: 4 },
-    divider: { marginVertical: 12 },
+    container: { flex: 1, backgroundColor: "#f8fafc" },
+    listContent: { padding: 16, paddingBottom: 40, flexGrow: 1 },
+    reviewCard: {
+        backgroundColor: "#fff",
+        borderRadius: 20,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: "#f1f5f9",
+    },
+    reviewHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+    },
+    homestayInfo: { flex: 1, paddingRight: 10 },
+    homestayName: { fontSize: 16, fontWeight: "800", color: "#0f172a", marginBottom: 6 },
+    badgeRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    verifiedBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        backgroundColor: "#ecfeff",
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    verifiedText: { fontSize: 11, color: "#0891b2", fontWeight: "700" },
+    createdAt: { fontSize: 12, color: "#94a3b8", fontWeight: "500" },
+    ratingBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        backgroundColor: "#0891b2",
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    ratingBadgeText: { fontSize: 13, fontWeight: "800", color: "#fff" },
+    divider: { marginVertical: 14, backgroundColor: "#f1f5f9" },
     ratingGrid: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 12,
-        marginBottom: 12,
+        rowGap: 12,
+        marginBottom: 16,
     },
-    ratingItem: { flex: 1, minWidth: "45%" },
-    ratingLabel: { fontSize: 12, color: "#6b7280", marginBottom: 4 },
-    starContainer: { flexDirection: "row", gap: 2 },
-    star: { marginRight: 1 },
-    comment: { fontSize: 14, color: "#4b5563", lineHeight: 20, marginBottom: 12 },
-    replySection: { backgroundColor: "#f3f4f6", borderRadius: 8, padding: 12, marginTop: 12, marginBottom: 12 },
-    replyHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-    replyLabel: { fontSize: 12, fontWeight: "600", color: "#0891b2" },
-    replyText: { fontSize: 13, color: "#4b5563", lineHeight: 18 },
-    actionButtons: { flexDirection: "row", gap: 12, justifyContent: "flex-end" },
-    actionButton: { flex: 1 },
-    actionLink: { flexDirection: "row", alignItems: "center", gap: 4 },
-    actionLinkText: { fontSize: 13, color: "#0891b2", fontWeight: "600" },
-    emptyContainer: { flexGrow: 1, justifyContent: "center" },
+    ratingItem: { width: "50%" },
+    ratingLabel: { fontSize: 11, color: "#64748b", fontWeight: "600", marginBottom: 4, textTransform: "uppercase" },
+    starRow: { flexDirection: "row", gap: 2 },
+
+    contentSection: { marginTop: 4 },
+    comment: { fontSize: 14, color: "#334155", lineHeight: 22, fontWeight: "400" },
+    noComment: { fontSize: 14, color: "#94a3b8", fontStyle: "italic" },
+
+    replySection: {
+        backgroundColor: "#f8fafc",
+        borderRadius: 14,
+        padding: 12,
+        marginTop: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: "#0891b2",
+    },
+    replyHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+    replyLine: { width: 4, height: 16, borderRadius: 2, backgroundColor: "#0891b2" },
+    replyLabel: { fontSize: 12, fontWeight: "700", color: "#0891b2" },
+    replyText: { fontSize: 13, color: "#475569", lineHeight: 20 },
+
+    footerActions: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        gap: 20,
+        marginTop: 16,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#f1f5f9",
+    },
+    actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+    actionBtnText: { fontSize: 13, color: "#64748b", fontWeight: "600" },
+
+    editSection: { marginTop: 10 },
+    editInput: { backgroundColor: "#f8fafc", borderRadius: 12 },
+    actionButtons: { flexDirection: "row", gap: 10, marginTop: 12 },
+    btn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+    btnPrimary: { backgroundColor: "#0891b2" },
+    btnOutline: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#e2e8f0" },
+    btnTextPrimary: { color: "#fff", fontWeight: "700", fontSize: 14 },
+    btnTextOutline: { color: "#64748b", fontWeight: "600", fontSize: 14 },
+
+    emptyContainer: { flexGrow: 1, justifyContent: "center", paddingBottom: 100 },
 });
