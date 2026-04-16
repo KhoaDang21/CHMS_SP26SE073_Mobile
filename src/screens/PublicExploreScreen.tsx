@@ -266,6 +266,7 @@ export default function PublicExploreScreen() {
                 navigation.navigate("Login");
               }}
               isFavorite={false}
+              seasonalPricings={item!.seasonalPricings}
             />
           );
         }}

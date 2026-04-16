@@ -31,6 +31,17 @@ const mapHomestay = (it: Record<string, unknown>): Homestay => ({
     it.reviewCount != null || it.ReviewCount != null
       ? Number(it.reviewCount ?? it.ReviewCount)
       : undefined,
+  seasonalPricings: Array.isArray(it.seasonalPricings ?? it.SeasonalPricings)
+    ? (it.seasonalPricings ?? it.SeasonalPricings).map((sp: any) => ({
+        id: String(sp?.id ?? sp?.Id ?? ""),
+        name: String(sp?.name ?? sp?.Name ?? ""),
+        startDate: String(sp?.startDate ?? sp?.StartDate ?? ""),
+        endDate: String(sp?.endDate ?? sp?.EndDate ?? ""),
+        price: Number(sp?.price ?? sp?.Price ?? 0),
+        description: String(sp?.description ?? sp?.Description ?? ""),
+        status: String(sp?.status ?? sp?.Status ?? "ACTIVE"),
+      }))
+    : undefined,
 });
 
 export interface HomestayFilters {

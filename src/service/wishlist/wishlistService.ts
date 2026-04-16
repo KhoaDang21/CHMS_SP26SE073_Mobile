@@ -4,6 +4,21 @@ import { apiConfig } from "@/service/constants/apiConfig";
 import { publicHomestayService } from "@/service/homestay/publicHomestayService";
 import type { Homestay } from "@/types";
 
+export interface HomestayScore {
+  homestayId: string;
+  homestayName: string;
+  matchScore: number;
+  priceScore: number;
+  amenityScore: number;
+  locationScore: number;
+}
+
+export interface CompareResult {
+  homestaysData: Homestay[];
+  aiAnalysisMarkdown: string;
+  scores: HomestayScore[];
+}
+
 const mapHomestay = (it: Record<string, unknown>): Homestay => ({
   id: String(it.id ?? it.Id ?? it.HomestayId ?? it.homestayId ?? ""),
   name: String(it.name ?? it.Name ?? it.HomestayName ?? it.homestayName ?? ""),
@@ -143,5 +158,36 @@ export const wishlistService = {
     } catch (error) {
       return [];
     }
+  },
+
+  /**
+   * POST /api/public/homestays/compare
+   * So sánh 2-4 homestay với AI phân tích
+   */
+  async compareHomestays(
+    homestayIds: string[],
+    customerPreferences?: string,
+  ): Promise<CompareResult> {
+    const res = await apiClient.post<any>(apiConfig.endpoints.compare.homestays, {
+      HomestayIds: homestayIds,
+      CustomerPreferences: customerPreferences ?? null,
+    });
+    const data = res?.data ?? res;
+    return {
+      homestaysData: Array.isArray(data?.homestaysData ?? data?.HomestaysData)
+        ? (data?.homestaysData ?? data?.HomestaysData).map(mapHomestay)
+        : [],
+      aiAnalysisMarkdown: String(data?.aiAnalysisMarkdown ?? data?.AiAnalysisMarkdown ?? ""),
+      scores: Array.isArray(data?.scores ?? data?.Scores)
+        ? (data?.scores ?? data?.Scores).map((s: any) => ({
+            homestayId: String(s?.homestayId ?? s?.HomestayId ?? ""),
+            homestayName: String(s?.homestayName ?? s?.HomestayName ?? ""),
+            matchScore: Number(s?.matchScore ?? s?.MatchScore ?? 0),
+            priceScore: Number(s?.priceScore ?? s?.PriceScore ?? 0),
+            amenityScore: Number(s?.amenityScore ?? s?.AmenityScore ?? 0),
+            locationScore: Number(s?.locationScore ?? s?.LocationScore ?? 0),
+          }))
+        : [],
+    };
   },
 };

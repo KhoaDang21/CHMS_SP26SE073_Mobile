@@ -309,6 +309,7 @@ export default function HomeScreen() {
                 onWishlistPress={() => handleWishlistToggle(item!.id)}
                 isFavorite={wishlistIds.has(item!.id)}
                 compact
+                seasonalPricings={item!.seasonalPricings}
               />
               {booked && (selectedProvince || selectedDistrict) ? (
                 <View style={styles.bookedPill}>

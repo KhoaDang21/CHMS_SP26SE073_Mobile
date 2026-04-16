@@ -26,6 +26,17 @@ export interface Homestay {
   reviewCount?: number;
   facilities?: string[];
   rules?: string[];
+  seasonalPricings?: SeasonalPricing[];
+}
+
+export interface SeasonalPricing {
+  id?: string;
+  name?: string;
+  startDate: string;
+  endDate: string;
+  price: number;
+  description?: string;
+  status?: string;
 }
 
 export interface Promotion {

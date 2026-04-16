@@ -1,9 +1,10 @@
-import { Header, LoadingIndicator } from "@/components";
+import { LoadingIndicator } from "@/components";
 import { useChat } from "@/hooks/useChat";
 import { AiBubbleContent } from "@/components/ai/AiBubbleContent";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import {
     Animated,
     Easing,
@@ -64,6 +65,7 @@ function TypingDots() {
 }
 
 export default function ChatScreen() {
+    const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { messages, sending, historyLoading, sendMessage, clearHistory } = useChat();
     const [inputText, setInputText] = useState("");
@@ -106,108 +108,123 @@ export default function ChatScreen() {
     }, [sendMessage]);
 
     return (
-        <SafeAreaView style={styles.container} edges={[]}>
-            <Header
-                title="Trợ lý AI"
-                showBack={false}
-                rightAction={{
-                    icon: "trash-can-outline",
-                    onPress: handleClearHistory,
-                }}
-            />
+        <SafeAreaView style={styles.container} edges={["top"]}>
+            {/* Header với nút đóng */}
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <View style={styles.headerAvatar}>
+                        <MaterialCommunityIcons name="robot" size={20} color="#fff" />
+                    </View>
+                    <View>
+                        <Text style={styles.headerTitle}>Trợ lý CHMS</Text>
+                        <View style={styles.headerOnline}>
+                            <View style={styles.onlineDot} />
+                            <Text style={styles.headerSubtitle}>Luôn sẵn sàng hỗ trợ</Text>
+                        </View>
+                    </View>
+                </View>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity style={styles.headerBtn} onPress={handleClearHistory}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="rgba(255,255,255,0.8)" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
+                        <MaterialCommunityIcons name="close" size={22} color="rgba(255,255,255,0.8)" />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
             {historyLoading ? (
                 <LoadingIndicator />
             ) : (
                 <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    keyExtractor={(item, idx) => item.timestamp + idx}
-                    renderItem={({ item }) => (
-                        <View
-                            style={[
-                                styles.messageBubble,
-                                item.sender === "User" ? styles.userBubble : styles.aiBubble,
-                            ]}
-                        >
-                            <View style={styles.bubbleWrapper}>
-                                {item.sender === "AI" && (
-                                    <View style={styles.aiAvatar}>
-                                        <MaterialCommunityIcons name="robot" size={16} color="#fff" />
-                                    </View>
-                                )}
-                                <View
-                                    style={[
-                                        styles.bubble,
-                                        item.sender === "User" ? styles.userMessage : styles.aiMessage,
-                                    ]}
-                                >
-                                    {item.sender === "AI" ? (
-                                        <AiBubbleContent
-                                            message={item.message}
-                                            recommendedHomestays={item.recommendedHomestays}
-                                            isRecommendation={item.isRecommendation}
-                                        />
-                                    ) : (
-                                        <Text style={[styles.messageText, styles.userMessageText]}>
-                                            {item.message}
-                                        </Text>
-                                    )}
-                                </View>
-                            </View>
-                            <Text style={[styles.timestamp, item.sender === "User" && styles.timestampRight]}>
-                                {new Date(item.timestamp).toLocaleTimeString("vi-VN", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                })}
-                            </Text>
-                        </View>
-                    )}
-                    ListHeaderComponent={
-                        messages.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <View style={styles.emptyIconContainer}>
-                                    <MaterialCommunityIcons
-                                        name="robot-happy-outline"
-                                        size={48}
-                                        color="#0891b2"
-                                    />
-                                </View>
-                                <Text style={styles.emptyTitle}>Xin chào! Tôi có thể giúp gì?</Text>
-                                <Text style={styles.emptyDesc}>
-                                    Tôi là trợ lý AI thông minh của CHMS. Hãy hỏi tôi bất cứ điều gì về:
-                                </Text>
-                                <View style={styles.featureGrid}>
-                                    {[
-                                        { icon: "home-search", label: "Tìm homestay" },
-                                        { icon: "calendar-check", label: "Đặt phòng" },
-                                        { icon: "tag-outline", label: "Giá ưu đãi" },
-                                        { icon: "map-marker-radius", label: "Gợi ý địa điểm" },
-                                    ].map((feat, i) => (
-                                        <View key={i} style={styles.featureChip}>
-                                            <MaterialCommunityIcons name={feat.icon as any} size={16} color="#0891b2" />
-                                            <Text style={styles.featureChipText}>{feat.label}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                        ) : null
-                    }
-                    ListFooterComponent={
-                        sending ? (
-                            <View style={styles.typingContainer}>
+                ref={flatListRef}
+                data={messages}
+                keyExtractor={(item, idx) => item.timestamp + idx}
+                renderItem={({ item }) => (
+                    <View
+                        style={[
+                            styles.messageBubble,
+                            item.sender === "User" ? styles.userBubble : styles.aiBubble,
+                        ]}
+                    >
+                        <View style={styles.bubbleWrapper}>
+                            {item.sender === "AI" && (
                                 <View style={styles.aiAvatar}>
                                     <MaterialCommunityIcons name="robot" size={16} color="#fff" />
                                 </View>
-                                <View style={styles.typingBubble}>
-                                    <TypingDots />
-                                </View>
+                            )}
+                            <View
+                                style={[
+                                    styles.bubble,
+                                    item.sender === "User" ? styles.userMessage : styles.aiMessage,
+                                ]}
+                            >
+                                {item.sender === "AI" ? (
+                                    <AiBubbleContent
+                                        message={item.message}
+                                        recommendedHomestays={item.recommendedHomestays}
+                                        isRecommendation={item.isRecommendation}
+                                    />
+                                ) : (
+                                    <Text style={[styles.messageText, styles.userMessageText]}>
+                                        {item.message}
+                                    </Text>
+                                )}
                             </View>
-                        ) : null
-                    }
-                    contentContainerStyle={styles.messagesList}
-                    showsVerticalScrollIndicator={false}
-                />
+                        </View>
+                        <Text style={[styles.timestamp, item.sender === "User" && styles.timestampRight]}>
+                            {new Date(item.timestamp).toLocaleTimeString("vi-VN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                            })}
+                        </Text>
+                    </View>
+                )}
+                ListHeaderComponent={
+                    messages.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <View style={styles.emptyIconContainer}>
+                                <MaterialCommunityIcons
+                                    name="robot-happy-outline"
+                                    size={48}
+                                    color="#0891b2"
+                                />
+                            </View>
+                            <Text style={styles.emptyTitle}>Xin chào! Tôi có thể giúp gì?</Text>
+                            <Text style={styles.emptyDesc}>
+                                Tôi là trợ lý AI thông minh của CHMS. Hãy hỏi tôi bất cứ điều gì về:
+                            </Text>
+                            <View style={styles.featureGrid}>
+                                {[
+                                    { icon: "home-search", label: "Tìm homestay" },
+                                    { icon: "calendar-check", label: "Đặt phòng" },
+                                    { icon: "tag-outline", label: "Giá ưu đãi" },
+                                    { icon: "map-marker-radius", label: "Gợi ý địa điểm" },
+                                ].map((feat, i) => (
+                                    <View key={i} style={styles.featureChip}>
+                                        <MaterialCommunityIcons name={feat.icon as any} size={16} color="#0891b2" />
+                                        <Text style={styles.featureChipText}>{feat.label}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    ) : null
+                }
+                ListFooterComponent={
+                    sending ? (
+                        <View style={styles.typingContainer}>
+                            <View style={styles.aiAvatar}>
+                                <MaterialCommunityIcons name="robot" size={16} color="#fff" />
+                            </View>
+                            <View style={styles.typingBubble}>
+                                <TypingDots />
+                            </View>
+                        </View>
+                    ) : null
+                }
+                contentContainerStyle={styles.messagesList}
+                showsVerticalScrollIndicator={false}
+            />
             )}
 
             {/* Quick Action — chỉ hiện khi chưa có tin nhắn */}
@@ -226,7 +243,7 @@ export default function ChatScreen() {
 
             {/* Input Area */}
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-                <View style={[styles.inputContainer, { paddingBottom: 8 }]}>
+                <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                     <View style={styles.inputWrapper}>
                         <TextInput
                             style={styles.msgInput}
@@ -261,6 +278,57 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#f8fafc",
+    },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: "#0891b2",
+    },
+    headerLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    headerAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: "rgba(255,255,255,0.2)",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 10,
+    },
+    headerTitle: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#fff",
+    },
+    headerOnline: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 2,
+    },
+    onlineDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: "#86efac",
+        marginRight: 5,
+    },
+    headerSubtitle: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.8)",
+    },
+    headerRight: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    headerBtn: {
+        padding: 8,
+        borderRadius: 8,
+        marginLeft: 4,
     },
     messagesList: {
         paddingHorizontal: 16,

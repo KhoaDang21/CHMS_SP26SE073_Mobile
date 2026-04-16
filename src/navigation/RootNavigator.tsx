@@ -24,6 +24,7 @@ import {
   SupportScreen,
   WishlistScreen,
 } from "@/screens";
+import AiFloatingButton from "@/components/ai/AiFloatingButton";
 import { tokenStorage } from "@/service/auth/tokenStorage";
 import { colors } from "@/utils/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -160,76 +161,90 @@ function AuthStackScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
 function MainTabs({ onLogout }: { onLogout?: () => void }) {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary[500],
-        tabBarInactiveTintColor: colors.text.tertiary,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          paddingBottom: 4,
-          height: 60,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          marginTop: -4,
-        },
-      }}
-    >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: "Trang chủ",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Wishlist"
-        component={WishlistScreen}
-        options={{
-          tabBarLabel: "Yêu thích",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="heart-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Chat"
-        component={ChatScreen}
-        options={{
-          tabBarLabel: "AI Chat",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="robot-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Bookings"
-        component={BookingsScreen}
-        options={{
-          tabBarLabel: "Đặt phòng",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="calendar-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        options={{
-          tabBarLabel: "Hồ sơ",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-outline" color={color} size={size} />
-          ),
+    <View style={{ flex: 1 }}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.primary[500],
+          tabBarInactiveTintColor: colors.text.tertiary,
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
+            paddingBottom: 4,
+            height: 60,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            marginTop: -4,
+          },
         }}
       >
-        {() => <ProfileScreen onLogout={onLogout} />}
-      </Tab.Screen>
-    </Tab.Navigator>
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            tabBarLabel: "Trang chủ",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="home-outline" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Bookings"
+          component={BookingsScreen}
+          options={{
+            tabBarLabel: "Đặt phòng",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="calendar-outline" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Services"
+          component={LocalExperiencesScreen}
+          options={{
+            tabBarLabel: "Dịch vụ",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="compass-outline" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Wishlist"
+          component={WishlistScreen}
+          options={{
+            tabBarLabel: "Yêu thích",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="heart-outline" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Support"
+          component={SupportScreen}
+          options={{
+            tabBarLabel: "Hỗ trợ",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="headphones" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Profile"
+          options={{
+            tabBarLabel: "Hồ sơ",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="account-outline" color={color} size={size} />
+            ),
+          }}
+        >
+          {() => <ProfileScreen onLogout={onLogout} />}
+        </Tab.Screen>
+      </Tab.Navigator>
+      {/* Floating AI chat button — overlay trên tất cả tabs */}
+      <AiFloatingButton />
+    </View>
   );
 }
 
@@ -340,7 +355,7 @@ export default function RootNavigator() {
               <Stack.Screen name="Reviews" component={ReviewsScreen} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
               <Stack.Screen name="NotificationPreferences" component={NotificationPreferencesScreen} />
-              <Stack.Screen name="Support" component={SupportScreen} />
+              <Stack.Screen name="Chat" component={ChatScreen} />
               <Stack.Screen name="CreateReview" component={CreateReviewScreen} />
             </Stack.Group>
           </Stack.Group>

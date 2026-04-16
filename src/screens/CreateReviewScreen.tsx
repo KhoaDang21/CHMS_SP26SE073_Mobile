@@ -58,6 +58,20 @@ export default function CreateReviewScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = useCallback(async () => {
+    // Validate ratings — đồng bộ với FE web
+    const ratingFields: { key: string; label: string; value: number }[] = [
+      { key: "overallRating", label: "Tổng quan", value: overallRating },
+      { key: "cleanlinessRating", label: "Vệ sinh", value: cleanlinessRating },
+      { key: "locationRating", label: "Vị trí", value: locationRating },
+      { key: "valueRating", label: "Giá trị", value: valueRating },
+      { key: "communicationRating", label: "Giao tiếp", value: communicationRating },
+    ];
+    for (const field of ratingFields) {
+      if (field.value === 0) {
+        showToast(`Vui lòng chọn điểm cho "${field.label}"`, "warning");
+        return;
+      }
+    }
     if (!comment.trim()) {
       showToast("Vui lòng nhập nhận xét", "warning");
       return;

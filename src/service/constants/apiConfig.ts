@@ -19,7 +19,7 @@ export const apiConfig = {
       list: "/api/homestays",
       search: "/api/homestays/search",
       detail: (id: string) => `/api/homestays/${id}`,
-      reviews: (id: string) => `/api/homestays/${id}/reviews`,
+      reviews: (id: string) => `/api/public/homestays/${id}/reviews`,
     },
     publicHomestays: {
       reviews: (homestayId: string) =>
@@ -41,6 +41,9 @@ export const apiConfig = {
       add: (homestayId: string) => `/api/wishlist/${homestayId}`,
       remove: (homestayId: string) => `/api/wishlist/${homestayId}`,
       recentlyViewed: "/api/recently-viewed",
+    },
+    compare: {
+      homestays: "/api/public/homestays/compare",
     },
     payments: {
       createLink: "/api/payment/create-link",
