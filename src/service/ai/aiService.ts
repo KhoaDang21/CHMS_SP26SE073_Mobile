@@ -1,107 +1,240 @@
 import { apiClient } from "@/service/api/apiClient";
-import { extractArray } from "@/service/api/responseHelpers";
 import { apiConfig } from "@/service/constants/apiConfig";
 
+/**
+ * Chat message structure from backend
+ */
 export interface ChatMessage {
-  id: string;
-  role: "USER" | "ASSISTANT";
+  sender: string; // "User" | "AI"
   message: string;
-  createdAt: string;
+  timestamp: string;
 }
 
-export interface Recommendation {
-  homestayId: string;
-  homestayName: string;
-  reason: string;
-  price: number;
-  rating: number;
+/**
+ * Request structure for getting recommendations
+ * Used for filter/search UI, NOT for chat messages
+ */
+export interface RecommendRequest {
+  preferences?: string;
+  location?: string;
+  guestCount?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  amenities?: string[];
 }
 
-export interface FAQ {
-  id: string;
-  question: string;
-  answer: string;
-  category: string;
+/**
+ * Chat wrapper response from backend
+ */
+export interface ChatWrapperResponse {
+  replyMessage: string;
+  isRecommendation: boolean;
+  recommendedHomestays?: any[];
 }
 
+/**
+ * Recommendation response from backend
+ */
+export interface RecommendResponse {
+  message: string;
+  recommendedHomestays: any[];
+}
+
+/**
+ * AI Service Layer
+ * All AI logic is handled by the backend
+ * Frontend is responsible only for UI and state management
+ */
 export const aiService = {
-  /** POST /api/ai/chat — BE returns ApiResponse<string> */
-  async sendMessage(message: string): Promise<string> {
-    const res = await apiClient.post<Record<string, unknown>>(apiConfig.endpoints.ai.chat, {
-      message,
-    });
-    const text = res?.data ?? res;
-    return typeof text === "string" ? text : "";
+  /**
+   * Unwrap common backend ApiResponse envelopes (data/Data) recursively.
+   * Handles multiple nesting levels and various response shapes.
+   */
+  normalizePayload(input: any): any {
+    let payload = input;
+    const visited = new Set(); // Prevent infinite loops
+
+    // Limit depth to avoid accidental infinite loops on malformed payloads
+    for (let i = 0; i < 5; i += 1) {
+      if (payload === null || payload === undefined) {
+        break;
+      }
+
+      if (visited.has(payload)) {
+        break; // Already seen this object
+      }
+
+      if (typeof payload !== "object" || Array.isArray(payload)) {
+        break; // Stop at non-objects or arrays
+      }
+
+      visited.add(payload);
+
+      // Try common wrapper properties
+      if (payload.data && typeof payload.data === "object") {
+        payload = payload.data;
+        continue;
+      }
+
+      if (payload.Data && typeof payload.Data === "object") {
+        payload = payload.Data;
+        continue;
+      }
+
+      if (payload.result && typeof payload.result === "object") {
+        payload = payload.result;
+        continue;
+      }
+
+      if (payload.Result && typeof payload.Result === "object") {
+        payload = payload.Result;
+        continue;
+      }
+
+      // No more unwrapping possible
+      break;
+    }
+
+    return payload ?? input;
   },
 
+  /**
+   * POST /api/ai/chat
+   * Send message to AI - backend handles ALL logic:
+   * - Intent detection
+   * - FAQ routing
+   * - Recommendations
+   * - General Q&A
+   * Returns: ChatWrapperResponseDTO with replyMessage, isRecommendation, and optional recommendedHomestays
+   */
+  async chat(message: string): Promise<ChatWrapperResponse> {
+    const res = await apiClient.post<any>(apiConfig.endpoints.ai.chat, {
+      Message: message,
+    });
+
+    let data = this.normalizePayload(res);
+
+    // BE might return nested data — unwrap more if needed
+    if (data?.data && typeof data.data === "object") {
+      data = data.data;
+    }
+
+    // Extract homestays — handle both camelCase and PascalCase + nested structures
+    let homestays =
+      data?.recommendedHomestays ??
+      data?.RecommendedHomestays ??
+      data?.recommended_homestays ??
+      null;
+
+    // If still not found, try to extract from other possible locations
+    if (!Array.isArray(homestays) && data) {
+      const keys = Object.keys(data);
+      const homestaayKey = keys.find(
+        (k) => k.toLowerCase().includes("homestay") && Array.isArray(data[k]),
+      );
+      if (homestaayKey) {
+        homestays = data[homestaayKey];
+      }
+    }
+
+    const result = {
+      replyMessage: String(
+        data?.replyMessage ??
+          data?.ReplyMessage ??
+          data?.message ??
+          data?.Message ??
+          "",
+      ),
+      isRecommendation: Boolean(
+        data?.isRecommendation ?? data?.IsRecommendation ?? false,
+      ),
+      recommendedHomestays: Array.isArray(homestays) ? homestays : undefined,
+    };
+
+    return result;
+  },
+
+  /**
+   * GET /api/ai/chat/history
+   * Retrieve chat history for current user
+   */
   async getChatHistory(): Promise<ChatMessage[]> {
-    const res = await apiClient.get<unknown>(apiConfig.endpoints.ai.chatHistory);
-    const list = extractArray<Record<string, unknown>>(res);
-    return list.map((item, idx) => ({
-      id: String(item.id ?? item.Id ?? `h-${idx}`),
-      role: (String(item.role ?? item.Role ?? "ASSISTANT").toUpperCase() === "USER"
-        ? "USER"
-        : "ASSISTANT") as "USER" | "ASSISTANT",
-      message: String(item.message ?? item.Message ?? ""),
-      createdAt: String(item.createdAt ?? item.CreatedAt ?? new Date().toISOString()),
-    }));
-  },
+    const res = await apiClient.get<any>(apiConfig.endpoints.ai.chatHistory);
 
-  async clearChatHistory(): Promise<{ success: boolean }> {
-    const res = await apiClient.delete<Record<string, unknown>>(
-      apiConfig.endpoints.ai.deleteChatHistory,
+    // Normalize response structure
+    const list: any[] = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res)
+        ? res
+        : [];
+
+    return list.map(
+      (r: any): ChatMessage => ({
+        sender: r.sender ?? "",
+        message: r.message ?? "",
+        timestamp: r.timestamp ?? new Date().toISOString(),
+      }),
     );
-    return { success: Boolean(res?.success ?? true) };
   },
 
-  /** FE: POST /api/ai/recommendations with body */
-  async getRecommendations(prefs?: {
-    preferences?: string;
-    location?: string;
-    guestCount?: number;
-  }): Promise<Recommendation[]> {
-    const res = await apiClient.post<unknown>(apiConfig.endpoints.ai.recommendations, {
-      preferences: prefs?.preferences ?? "Homestay ven biển, giá hợp lý",
-      location: prefs?.location,
-      guestCount: prefs?.guestCount,
-    });
-    const r = res as Record<string, unknown>;
-    const list = r?.data;
-    const arr = Array.isArray(list) ? list : Array.isArray(res) ? res : [];
-    return (arr as Record<string, unknown>[]).map((item) => ({
-      homestayId: String(item.homestayId ?? item.HomestayId ?? ""),
-      homestayName: String(item.homestayName ?? item.HomestayName ?? ""),
-      reason: String(item.reason ?? item.Reason ?? ""),
-      price: Number(item.price ?? item.Price ?? 0),
-      rating: Number(item.rating ?? item.Rating ?? 0),
-    }));
+  /**
+   * DELETE /api/ai/chat/history
+   * Clear all chat history for current user
+   */
+  async deleteChatHistory(): Promise<void> {
+    await apiClient.delete<any>(apiConfig.endpoints.ai.deleteChatHistory);
   },
 
-  async getFAQs(category?: string): Promise<FAQ[]> {
-    const url = category
-      ? `${apiConfig.endpoints.ai.faq}?category=${encodeURIComponent(category)}`
-      : apiConfig.endpoints.ai.faq;
-    const res = await apiClient.get<unknown>(url);
-    const r = res as Record<string, unknown>;
-    const list = Array.isArray(r?.data) ? r.data : Array.isArray(res) ? res : [];
-    return (list as Record<string, unknown>[]).map((item) => ({
-      id: String(item.id ?? item.Id ?? ""),
-      question: String(item.question ?? item.Question ?? ""),
-      answer: String(item.answer ?? item.Answer ?? ""),
-      category: String(item.category ?? item.Category ?? ""),
-    }));
+  /**
+   * POST /api/ai/recommendations
+   * Get structured recommendations for filter/search UI
+   * NOT used for chat messages
+   */
+  async getRecommendations(data: RecommendRequest): Promise<RecommendResponse> {
+    try {
+      const res = await apiClient.post<any>(
+        apiConfig.endpoints.ai.recommendations,
+        {
+          Location: data.location,
+          GuestCount: data.guestCount ?? 2,
+          MinPrice: data.minPrice,
+          MaxPrice: data.maxPrice,
+          Amenities: data.amenities,
+          Preferences: data.preferences,
+        },
+      );
+
+      // Normalize response - handle different property cases
+      const result = res?.data ?? res;
+      const message = result?.message ?? result?.Message ?? "";
+      const homestays =
+        result?.recommendedHomestays ?? result?.RecommendedHomestays ?? [];
+
+      return {
+        message,
+        recommendedHomestays: Array.isArray(homestays) ? homestays : [],
+      };
+    } catch (error) {
+      console.error("[AI] getRecommendations error:", error);
+      return {
+        message: "",
+        recommendedHomestays: [],
+      };
+    }
   },
 
-  async askFAQ(question: string): Promise<FAQ[]> {
-    const res = await apiClient.post<unknown>(apiConfig.endpoints.ai.askFaq, {
-      message: question,
-    });
-    const list = extractArray<Record<string, unknown>>(res);
-    return list.map((item) => ({
-      id: String(item.id ?? item.Id ?? ""),
-      question: String(item.question ?? item.Question ?? ""),
-      answer: String(item.answer ?? item.Answer ?? ""),
-      category: String(item.category ?? item.Category ?? ""),
-    }));
+  /**
+   * GET /api/ai/faq
+   * Retrieve FAQ list (public, used for FAQ screen only)
+   */
+  async getFaqs(): Promise<any[]> {
+    try {
+      const res = await apiClient.get<any>(apiConfig.endpoints.ai.faq);
+      const list = res?.data ?? res;
+      return Array.isArray(list) ? list : [];
+    } catch (error) {
+      console.error("[AI] getFaqs error:", error);
+      return [];
+    }
   },
 };
