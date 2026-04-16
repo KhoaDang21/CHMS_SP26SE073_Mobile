@@ -115,6 +115,10 @@ export default function HomestayDetailScreen() {
   const [couponPickerVisible, setCouponPickerVisible] = useState(false);
   const [couponValidating, setCouponValidating] = useState(false);
 
+  // Seasonal pricing — gọi calculate API khi dates thay đổi
+  const [calcResult, setCalcResult] = useState<number | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+
   // Validate ID exists
   useEffect(() => {
     if (!effectiveHomestayId && !initialHomestay) {
@@ -229,6 +233,33 @@ export default function HomestayDetailScreen() {
     );
   }, [guestCount]);
 
+  // Gọi calculate API để lấy giá thực tế (có tính seasonal pricing)
+  useEffect(() => {
+    if (!effectiveHomestayId || nights <= 0) {
+      setCalcResult(null);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      setIsCalculating(true);
+      try {
+        const result = await bookingService.calculate({
+          homestayId: effectiveHomestayId,
+          checkIn: checkInDate.toISOString().split("T")[0],
+          checkOut: checkOutDate.toISOString().split("T")[0],
+          guestsCount: guestCount,
+        });
+        if (!cancelled) setCalcResult(result);
+      } catch {
+        if (!cancelled) setCalcResult(null);
+      } finally {
+        if (!cancelled) setIsCalculating(false);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [effectiveHomestayId, checkInDate, checkOutDate, guestCount]);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -299,7 +330,15 @@ export default function HomestayDetailScreen() {
   };
 
   const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000);
-  const totalPrice = item ? item.pricePerNight * nights : 0;
+  // Dùng calcResult từ BE nếu có (tính seasonal), fallback về pricePerNight * nights
+  const baseTotal = item ? item.pricePerNight * nights : 0;
+  const computedTotal = (typeof calcResult === "number" && Number.isFinite(calcResult) && calcResult > 0)
+    ? calcResult
+    : baseTotal;
+  const totalPrice = computedTotal;
+  const effectivePricePerNight = nights > 0 ? Math.round(computedTotal / nights) : (item?.pricePerNight ?? 0);
+  const isSeasonalPriceApplied = Math.abs(computedTotal - baseTotal) >= 1;
+  const seasonalDelta = isSeasonalPriceApplied ? computedTotal - baseTotal : 0;
   const experienceTotal = selectedExperiences.reduce((sum, e) => sum + e.item.price * e.qty, 0);
   const selectedPromotionDiscount =
     selectedPromotion
@@ -785,8 +824,46 @@ export default function HomestayDetailScreen() {
                 <View style={styles.nightsSummary}>
                   <MaterialCommunityIcons name="weather-night" size={16} color="#64748b" />
                   <Text style={styles.nightsText}>{nights} đêm</Text>
-                  <Text style={styles.nightsTotal}>· Tổng: ₫{totalPrice.toLocaleString("vi-VN")}</Text>
+                  {isCalculating ? (
+                    <Text style={styles.nightsTotal}>· Đang tính...</Text>
+                  ) : (
+                    <Text style={styles.nightsTotal}>
+                      · {effectivePricePerNight.toLocaleString("vi-VN")}₫ × {nights} = ₫{totalPrice.toLocaleString("vi-VN")}
+                    </Text>
+                  )}
                 </View>
+
+                {/* Seasonal pricing notice */}
+                {nights > 0 && isSeasonalPriceApplied && !isCalculating && (
+                  <View style={[
+                    styles.seasonalNotice,
+                    seasonalDelta > 0 ? styles.seasonalNoticeHigh : styles.seasonalNoticeLow,
+                  ]}>
+                    <MaterialCommunityIcons
+                      name={seasonalDelta > 0 ? "trending-up" : "trending-down"}
+                      size={15}
+                      color={seasonalDelta > 0 ? "#b91c1c" : "#065f46"}
+                    />
+                    <Text style={[
+                      styles.seasonalNoticeText,
+                      { color: seasonalDelta > 0 ? "#b91c1c" : "#065f46" },
+                    ]}>
+                      {seasonalDelta > 0
+                        ? `Giá theo mùa cao hơn ₫${Math.abs(seasonalDelta).toLocaleString("vi-VN")} so với giá niêm yết`
+                        : `Giá theo mùa thấp hơn ₫${Math.abs(seasonalDelta).toLocaleString("vi-VN")} so với giá niêm yết`}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Static seasonal warning (always show) */}
+                {nights <= 0 && (
+                  <View style={styles.seasonalWarning}>
+                    <MaterialCommunityIcons name="information-outline" size={14} color="#92400e" />
+                    <Text style={styles.seasonalWarningText}>
+                      Giá thực tế có thể thay đổi theo mùa/lễ. Chọn ngày để xem đơn giá áp dụng.
+                    </Text>
+                  </View>
+                )}
 
                 {/* Guest Counter */}
                 <View style={styles.counterRow}>
@@ -1230,6 +1307,21 @@ const styles = StyleSheet.create({
   },
   nightsText: { fontSize: 13, color: "#64748b", fontWeight: "500" },
   nightsTotal: { fontSize: 13, fontWeight: "800", color: "#0891b2" },
+  seasonalNotice: {
+    flexDirection: "row", alignItems: "center",
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
+    marginBottom: 12, borderWidth: 1,
+  },
+  seasonalNoticeHigh: { backgroundColor: "#fef2f2", borderColor: "#fecaca" },
+  seasonalNoticeLow: { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" },
+  seasonalNoticeText: { fontSize: 12, fontWeight: "600", flex: 1, marginLeft: 6, lineHeight: 17 },
+  seasonalWarning: {
+    flexDirection: "row", alignItems: "flex-start",
+    backgroundColor: "#fffbeb", borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+    marginBottom: 12, borderWidth: 1, borderColor: "#fde68a",
+  },
+  seasonalWarningText: { fontSize: 11, color: "#92400e", flex: 1, marginLeft: 6, lineHeight: 16 },
   counterRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
   counterLabel: { fontSize: 14, fontWeight: "700", color: "#1e293b" },
   counter: { flexDirection: "row", alignItems: "center", gap: 14 },

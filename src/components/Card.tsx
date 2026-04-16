@@ -9,6 +9,8 @@ import {
     ViewStyle,
     StyleProp,
 } from "react-native";
+import { getActiveSeasonalPricing } from "@/utils/seasonalPricing";
+import type { SeasonalPricing } from "@/types";
 
 interface CardProps {
     children: React.ReactNode;
@@ -40,11 +42,11 @@ interface HomestayCardProps {
     onPress: () => void;
     onWishlistPress: () => void;
     isFavorite?: boolean;
-    compact?: boolean; // 2-column grid mode
+    compact?: boolean;
+    seasonalPricings?: SeasonalPricing[];
 }
 
 export const HomestayCard: React.FC<HomestayCardProps> = ({
-    id,
     name,
     image,
     price,
@@ -55,9 +57,17 @@ export const HomestayCard: React.FC<HomestayCardProps> = ({
     onWishlistPress,
     isFavorite = false,
     compact = false,
+    seasonalPricings,
 }) => {
     const hasRating = rating !== undefined && rating > 0;
     const starCount = hasRating ? Math.round(rating!) : 0;
+
+    // Check seasonal pricing — đồng bộ với FE web
+    const activeSeasonal = getActiveSeasonalPricing(seasonalPricings);
+    const seasonalPrice = activeSeasonal?.price;
+    const hasSeasonalPrice = typeof seasonalPrice === "number" && seasonalPrice > 0 && seasonalPrice !== price;
+    const displayPrice = hasSeasonalPrice ? seasonalPrice : price;
+
     return (
         <Card style={[styles.homestayCard, compact && styles.homestayCardCompact]} onPress={onPress}>
             <View style={[styles.imageContainer, compact && styles.imageContainerCompact]}>
@@ -111,14 +121,38 @@ export const HomestayCard: React.FC<HomestayCardProps> = ({
                 {compact && reviewCount != null && reviewCount > 0 && (
                     <Text style={styles.reviewCountCompact}>{reviewCount} đánh giá</Text>
                 )}
+
+                {/* Price section */}
                 <View style={styles.footer}>
                     <View style={styles.priceRow}>
                         <Text style={[styles.price, compact && styles.priceCompact]}>
-                            ₫{price.toLocaleString("vi-VN")}
+                            ₫{displayPrice.toLocaleString("vi-VN")}
                         </Text>
                         <Text style={[styles.currency, compact && styles.currencyCompact]}>/đêm</Text>
                     </View>
                 </View>
+
+                {/* Seasonal pricing info */}
+                {hasSeasonalPrice ? (
+                    <>
+                        <Text style={[styles.originalPrice, compact && styles.originalPriceCompact]}>
+                            Giá niêm yết: <Text style={styles.strikethrough}>{price.toLocaleString("vi-VN")}đ</Text>
+                        </Text>
+                        <View style={[styles.seasonalActive, compact && styles.seasonalActiveCompact]}>
+                            <Text style={styles.seasonalActiveIcon}>🌿</Text>
+                            <Text style={[styles.seasonalActiveText, compact && styles.seasonalActiveTextCompact]}>
+                                {activeSeasonal?.name ? `Giá theo mùa: ${activeSeasonal.name}` : "Đang áp dụng giá theo mùa"}
+                            </Text>
+                        </View>
+                    </>
+                ) : (
+                    <View style={[styles.seasonalWarning, compact && styles.seasonalWarningCompact]}>
+                        <Text style={styles.seasonalWarningIcon}>⚡</Text>
+                        <Text style={[styles.seasonalWarningText, compact && styles.seasonalWarningTextCompact]}>
+                            Giá có thể thay đổi theo mùa/lễ
+                        </Text>
+                    </View>
+                )}
             </View>
         </Card>
     );
@@ -239,22 +273,12 @@ const styles = StyleSheet.create({
         lineHeight: 16,
         marginBottom: 3,
     },
-    currency: {
-        fontSize: 11,
-        color: "#64748b",
-        marginLeft: 2,
-    },
-    currencyCompact: {
-        fontSize: 10,
-    },
-    // Location badge on image
     locationBadge: {
         position: "absolute",
         top: 8,
         left: 8,
         flexDirection: "row",
         alignItems: "center",
-        gap: 3,
         backgroundColor: "rgba(0,0,0,0.55)",
         paddingHorizontal: 7,
         paddingVertical: 3,
@@ -270,15 +294,14 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontSize: 11,
         fontWeight: "600",
+        marginLeft: 3,
     },
     locationBadgeTextCompact: {
         fontSize: 9,
     },
-    // Rating row below name
     ratingRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 2,
         marginBottom: 6,
         flexWrap: "wrap",
     },
@@ -327,12 +350,90 @@ const styles = StyleSheet.create({
     priceCompact: {
         fontSize: 12,
     },
+    currency: {
+        fontSize: 11,
+        color: "#64748b",
+        marginLeft: 2,
+    },
+    currencyCompact: {
+        fontSize: 10,
+    },
+    originalPrice: {
+        fontSize: 10,
+        color: "#64748b",
+        marginTop: 4,
+    },
+    originalPriceCompact: {
+        fontSize: 9,
+        marginTop: 3,
+    },
+    strikethrough: {
+        textDecorationLine: "line-through",
+    },
+    seasonalActive: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#ecfdf5",
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        marginTop: 5,
+        borderWidth: 1,
+        borderColor: "#a7f3d0",
+    },
+    seasonalActiveCompact: {
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        marginTop: 4,
+    },
+    seasonalActiveIcon: {
+        fontSize: 10,
+        marginRight: 4,
+    },
+    seasonalActiveText: {
+        fontSize: 10,
+        color: "#047857",
+        fontWeight: "500",
+        flex: 1,
+        lineHeight: 14,
+    },
+    seasonalActiveTextCompact: {
+        fontSize: 9,
+        lineHeight: 12,
+    },
+    seasonalWarning: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#fffbeb",
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+        marginTop: 6,
+        borderWidth: 1,
+        borderColor: "#fde68a",
+    },
+    seasonalWarningCompact: {
+        paddingHorizontal: 6,
+        paddingVertical: 4,
+        marginTop: 4,
+    },
+    seasonalWarningIcon: {
+        fontSize: 11,
+        marginRight: 4,
+    },
+    seasonalWarningText: {
+        fontSize: 10,
+        color: "#92400e",
+        fontWeight: "500",
+        flex: 1,
+        lineHeight: 14,
+    },
+    seasonalWarningTextCompact: {
+        fontSize: 9,
+        lineHeight: 12,
+    },
     skeleton: {
         backgroundColor: "#e2e8f0",
-    },
-    skeletonImage: {
-        width: "100%",
-        height: "100%",
     },
     skeletonText: {
         height: 12,

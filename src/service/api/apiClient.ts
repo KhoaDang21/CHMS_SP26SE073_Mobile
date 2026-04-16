@@ -1,5 +1,57 @@
 import { apiConfig } from "@/service/constants/apiConfig";
 import { tokenStorage } from "@/service/auth/tokenStorage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// AI endpoints cần timeout dài hơn vì LLM response chậm
+const AI_ENDPOINTS = ["/api/ai/chat", "/api/ai/recommendations", "/api/ai/faq"];
+// BE gọi LLM có thể timeout tới 120s, mobile mạng yếu dễ vượt 60s
+const AI_TIMEOUT = 120000; // 120s cho AI
+
+type RefreshTokenResponse = {
+  data?: {
+    accessToken?: string;
+    token?: string;
+    refreshToken?: string;
+  };
+  accessToken?: string;
+  token?: string;
+  refreshToken?: string;
+};
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = await tokenStorage.getRefreshToken();
+  if (!refreshToken) return null;
+  const accessToken = (await tokenStorage.getToken()) ?? "";
+
+  const url = `${apiConfig.baseURL}${apiConfig.endpoints.auth.refreshToken}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken, accessToken }),
+  });
+
+  if (!response.ok) return null;
+
+  const json = (await response.json().catch(() => ({}))) as RefreshTokenResponse;
+  const newAccessToken =
+    json?.data?.accessToken ?? json?.data?.token ?? json?.accessToken ?? json?.token ?? null;
+  const newRefreshToken = json?.data?.refreshToken ?? json?.refreshToken ?? refreshToken;
+
+  if (!newAccessToken) return null;
+
+  const user = await tokenStorage.getUser();
+  if (user) {
+    await tokenStorage.setSession(newAccessToken, newRefreshToken, user);
+  } else {
+    // Fallback: chỉ cập nhật token, không đụng userData
+    await AsyncStorage.setItem("authToken", newAccessToken);
+    if (newRefreshToken) {
+      await AsyncStorage.setItem("refreshToken", newRefreshToken);
+    }
+  }
+
+  return newAccessToken;
+}
 
 async function request<T>(
   endpoint: string,
@@ -7,12 +59,14 @@ async function request<T>(
 ): Promise<T> {
   const token = await tokenStorage.getToken();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), apiConfig.timeout);
+  const isAiEndpoint = AI_ENDPOINTS.some((e) => endpoint.startsWith(e));
+  const timeoutMs = isAiEndpoint ? AI_TIMEOUT : apiConfig.timeout;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const url = `${apiConfig.baseURL}${endpoint}`;
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -21,6 +75,26 @@ async function request<T>(
       },
       signal: controller.signal,
     });
+
+    // Auto refresh token on 401 (except refresh endpoint itself)
+    if (
+      response.status === 401 &&
+      token &&
+      endpoint !== apiConfig.endpoints.auth.refreshToken
+    ) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        response = await fetch(url, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${newToken}`,
+            ...options.headers,
+          },
+          signal: controller.signal,
+        });
+      }
+    }
 
     const data = await response.json().catch(() => ({}));
 

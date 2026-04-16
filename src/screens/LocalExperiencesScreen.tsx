@@ -114,7 +114,7 @@ export default function LocalExperiencesScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={[]}>
-            <Header showBack title="Dịch Vụ Địa Phương" />
+            <Header showBack={false} title="Dịch Vụ Địa Phương" />
 
             {loading ? (
                 <View style={styles.center}>

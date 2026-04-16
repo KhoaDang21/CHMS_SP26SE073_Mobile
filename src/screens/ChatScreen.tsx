@@ -1,15 +1,13 @@
-import {
-    Header,
-    Input,
-    LoadingIndicator
-} from "@/components";
-import { aiService } from "@/service/ai/aiService";
-import { logger } from "@/utils/logger";
+import { LoadingIndicator } from "@/components";
+import { useChat } from "@/hooks/useChat";
+import { AiBubbleContent } from "@/components/ai/AiBubbleContent";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import {
+    Animated,
+    Easing,
     FlatList,
     KeyboardAvoidingView,
     Platform,
@@ -21,52 +19,59 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface Message {
-    id: string;
-    text: string;
-    sender: "user" | "ai";
-    timestamp: Date;
+/** Animated 3-dot typing indicator */
+function TypingDots() {
+    const dots = [
+        useRef(new Animated.Value(0)).current,
+        useRef(new Animated.Value(0)).current,
+        useRef(new Animated.Value(0)).current,
+    ];
+
+    useEffect(() => {
+        const animations = dots.map((dot, i) =>
+            Animated.loop(
+                Animated.sequence([
+                    Animated.delay(i * 150),
+                    Animated.timing(dot, {
+                        toValue: -6,
+                        duration: 300,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(dot, {
+                        toValue: 0,
+                        duration: 300,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.delay(300),
+                ])
+            )
+        );
+        Animated.parallel(animations).start();
+        return () => animations.forEach(a => a.stop());
+    }, []);
+
+    return (
+        <View style={styles.dotsRow}>
+            {dots.map((dot, i) => (
+                <Animated.View
+                    key={i}
+                    style={[styles.dot, { transform: [{ translateY: dot }] }]}
+                />
+            ))}
+        </View>
+    );
 }
 
 export default function ChatScreen() {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [sending, setSending] = useState(false);
+    const { messages, sending, historyLoading, sendMessage, clearHistory } = useChat();
     const [inputText, setInputText] = useState("");
-    const [aiLoading, setAiLoading] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
-        const loadChatHistory = async () => {
-            try {
-                const history = await aiService.getChatHistory();
-                if (history && Array.isArray(history)) {
-                    const formattedMessages = history.map((msg: any, idx: number) => {
-                        const raw = String(msg.sender ?? msg.role ?? "").toLowerCase();
-                        const sender: "user" | "ai" = raw.includes("user") ? "user" : "ai";
-                        return {
-                            id: `history-${msg.id ?? idx}`,
-                            text: msg.message || msg.text || String(msg),
-                            sender,
-                            timestamp: new Date(msg.timestamp || msg.createdAt || Date.now()),
-                        };
-                    });
-                    setMessages(formattedMessages);
-                }
-            } catch (error) {
-
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadChatHistory();
-    }, []);
-
-    useEffect(() => {
-        // Scroll to bottom when messages change
         if (messages.length > 0) {
             setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
@@ -75,108 +80,75 @@ export default function ChatScreen() {
     }, [messages]);
 
     const handleSendMessage = useCallback(async () => {
-        if (!inputText.trim()) return;
-
-        const userMessage: Message = {
-            id: `msg-${Date.now()}`,
-            text: inputText,
-            sender: "user",
-            timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, userMessage]);
+        if (!inputText.trim() || sending) return;
+        const msgToSend = inputText.trim();
         setInputText("");
-        setSending(true);
-        setAiLoading(true);
-
         try {
-            const aiText = await aiService.sendMessage(inputText.trim());
-            const aiMessage: Message = {
-                id: `msg-${Date.now()}-ai`,
-                text: aiText?.trim() || "Xin lỗi, tôi không thể trả lời câu hỏi này.",
-                sender: "ai",
-                timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, aiMessage]);
-        } catch (error: any) {
+            await sendMessage(msgToSend);
+        } catch {
             showToast("Lỗi khi gửi tin nhắn", "error");
-
-        } finally {
-            setSending(false);
-            setAiLoading(false);
         }
-    }, [inputText]);
+    }, [inputText, sendMessage, sending]);
 
     const handleClearHistory = useCallback(async () => {
         try {
-            await aiService.clearChatHistory();
-            setMessages([]);
+            await clearHistory();
             showToast("Đã xóa lịch chat", "success");
         } catch {
             showToast("Không thể xóa lịch chat", "error");
         }
-    }, []);
+    }, [clearHistory]);
 
     const handleGetRecommendations = useCallback(async () => {
-        setSending(true);
         try {
-            const recommendations = await aiService.getRecommendations();
-            const recText =
-                recommendations?.length > 0
-                    ? recommendations
-                        .map(
-                            (r) =>
-                                `• ${r.homestayName} — ₫${r.price.toLocaleString("vi-VN")}/đêm (★${r.rating})\n  ${r.reason}`,
-                        )
-                        .join("\n\n")
-                    : "Hiện chưa có gợi ý phù hợp. Hãy thử mô tả sở thích của bạn trong ô chat.";
-            const aiMessage: Message = {
-                id: `msg-${Date.now()}-rec`,
-                text: `Gợi ý cho bạn:\n\n${recText}`,
-                sender: "ai",
-                timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, aiMessage]);
-        } catch (error) {
-            showToast("Không thể lấy gợi ý", "error");
-        } finally {
-            setSending(false);
+            await sendMessage("Tôi muốn nhận gợi ý về homestay");
+        } catch {
+            showToast("Không thể gửi yêu cầu", "error");
         }
-    }, []);
-
-    if (loading) {
-        return (
-            <SafeAreaView style={styles.container} edges={[]}>
-                <Header title="AI Chat" showBack={false} />
-                <LoadingIndicator />
-            </SafeAreaView>
-        );
-    }
+    }, [sendMessage]);
 
     return (
-        <SafeAreaView style={styles.container} edges={[]}>
-            <Header
-                title="AI Chat"
-                showBack={false}
-                rightAction={{
-                    icon: "trash-can-outline",
-                    onPress: handleClearHistory,
-                }}
-            />
+        <SafeAreaView style={styles.container} edges={["top"]}>
+            {/* Header với nút đóng */}
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <View style={styles.headerAvatar}>
+                        <MaterialCommunityIcons name="robot" size={20} color="#fff" />
+                    </View>
+                    <View>
+                        <Text style={styles.headerTitle}>Trợ lý CHMS</Text>
+                        <View style={styles.headerOnline}>
+                            <View style={styles.onlineDot} />
+                            <Text style={styles.headerSubtitle}>Luôn sẵn sàng hỗ trợ</Text>
+                        </View>
+                    </View>
+                </View>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity style={styles.headerBtn} onPress={handleClearHistory}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="rgba(255,255,255,0.8)" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
+                        <MaterialCommunityIcons name="close" size={22} color="rgba(255,255,255,0.8)" />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
-            <FlatList
+            {historyLoading ? (
+                <LoadingIndicator />
+            ) : (
+                <FlatList
                 ref={flatListRef}
                 data={messages}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, idx) => item.timestamp + idx}
                 renderItem={({ item }) => (
                     <View
                         style={[
                             styles.messageBubble,
-                            item.sender === "user" ? styles.userBubble : styles.aiBubble,
+                            item.sender === "User" ? styles.userBubble : styles.aiBubble,
                         ]}
                     >
                         <View style={styles.bubbleWrapper}>
-                            {item.sender === "ai" && (
+                            {item.sender === "AI" && (
                                 <View style={styles.aiAvatar}>
                                     <MaterialCommunityIcons name="robot" size={16} color="#fff" />
                                 </View>
@@ -184,23 +156,24 @@ export default function ChatScreen() {
                             <View
                                 style={[
                                     styles.bubble,
-                                    item.sender === "user" ? styles.userMessage : styles.aiMessage,
+                                    item.sender === "User" ? styles.userMessage : styles.aiMessage,
                                 ]}
                             >
-                                <Text
-                                    style={[
-                                        styles.messageText,
-                                        item.sender === "user"
-                                            ? styles.userMessageText
-                                            : styles.aiMessageText,
-                                    ]}
-                                >
-                                    {item.text}
-                                </Text>
+                                {item.sender === "AI" ? (
+                                    <AiBubbleContent
+                                        message={item.message}
+                                        recommendedHomestays={item.recommendedHomestays}
+                                        isRecommendation={item.isRecommendation}
+                                    />
+                                ) : (
+                                    <Text style={[styles.messageText, styles.userMessageText]}>
+                                        {item.message}
+                                    </Text>
+                                )}
                             </View>
                         </View>
-                        <Text style={[styles.timestamp, item.sender === "user" && { textAlign: "right" }]}>
-                            {item.timestamp.toLocaleTimeString("vi-VN", {
+                        <Text style={[styles.timestamp, item.sender === "User" && styles.timestampRight]}>
+                            {new Date(item.timestamp).toLocaleTimeString("vi-VN", {
                                 hour: "2-digit",
                                 minute: "2-digit",
                             })}
@@ -237,33 +210,39 @@ export default function ChatScreen() {
                         </View>
                     ) : null
                 }
+                ListFooterComponent={
+                    sending ? (
+                        <View style={styles.typingContainer}>
+                            <View style={styles.aiAvatar}>
+                                <MaterialCommunityIcons name="robot" size={16} color="#fff" />
+                            </View>
+                            <View style={styles.typingBubble}>
+                                <TypingDots />
+                            </View>
+                        </View>
+                    ) : null
+                }
                 contentContainerStyle={styles.messagesList}
                 showsVerticalScrollIndicator={false}
             />
+            )}
 
-            {/* Quick Actions */}
-            {messages.length === 0 && (
+            {/* Quick Action — chỉ hiện khi chưa có tin nhắn */}
+            {messages.length === 0 && !historyLoading && (
                 <View style={styles.quickActions}>
                     <TouchableOpacity
                         style={styles.quickActionButton}
                         onPress={handleGetRecommendations}
                         activeOpacity={0.7}
                     >
-                        <MaterialCommunityIcons
-                            name="creation"
-                            size={18}
-                            color="#fff"
-                        />
+                        <MaterialCommunityIcons name="creation" size={18} color="#fff" />
                         <Text style={styles.quickActionText}>Nhận Gợi Ý Homestay Ngay</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
             {/* Input Area */}
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
                 <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                     <View style={styles.inputWrapper}>
                         <TextInput
@@ -274,18 +253,19 @@ export default function ChatScreen() {
                             multiline
                             placeholderTextColor="#94a3b8"
                             editable={!sending}
+                            onSubmitEditing={handleSendMessage}
+                            blurOnSubmit={false}
                         />
                         <TouchableOpacity
-                            style={[styles.sendButton, (sending || !inputText.trim()) && styles.sendButtonDisabled]}
+                            style={[
+                                styles.sendButton,
+                                (sending || !inputText.trim()) && styles.sendButtonDisabled,
+                            ]}
                             onPress={handleSendMessage}
                             disabled={sending || !inputText.trim()}
                             activeOpacity={0.8}
                         >
-                            {sending ? (
-                                <MaterialCommunityIcons name="loading" size={20} color="#fff" />
-                            ) : (
-                                <MaterialCommunityIcons name="send" size={20} color="#fff" />
-                            )}
+                            <MaterialCommunityIcons name="send" size={20} color="#fff" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -298,6 +278,57 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#f8fafc",
+    },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: "#0891b2",
+    },
+    headerLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    headerAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: "rgba(255,255,255,0.2)",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 10,
+    },
+    headerTitle: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#fff",
+    },
+    headerOnline: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 2,
+    },
+    onlineDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: "#86efac",
+        marginRight: 5,
+    },
+    headerSubtitle: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.8)",
+    },
+    headerRight: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    headerBtn: {
+        padding: 8,
+        borderRadius: 8,
+        marginLeft: 4,
     },
     messagesList: {
         paddingHorizontal: 16,
@@ -336,13 +367,12 @@ const styles = StyleSheet.create({
     featureGrid: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 10,
         justifyContent: "center",
+        marginHorizontal: -5,
     },
     featureChip: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
         paddingHorizontal: 12,
         paddingVertical: 8,
         backgroundColor: "#fff",
@@ -354,11 +384,13 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 1,
+        margin: 5,
     },
     featureChipText: {
         fontSize: 13,
         fontWeight: "600",
         color: "#334155",
+        marginLeft: 6,
     },
     messageBubble: {
         marginBottom: 16,
@@ -373,7 +405,6 @@ const styles = StyleSheet.create({
     bubbleWrapper: {
         flexDirection: "row",
         alignItems: "flex-end",
-        gap: 8,
     },
     aiAvatar: {
         width: 28,
@@ -383,6 +414,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         marginBottom: 4,
+        marginRight: 8,
     },
     bubble: {
         paddingHorizontal: 14,
@@ -412,14 +444,41 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontWeight: "500",
     },
-    aiMessageText: {
-        color: "#1e293b",
-    },
     timestamp: {
         fontSize: 11,
         color: "#94a3b8",
         marginTop: 6,
         marginHorizontal: 4,
+    },
+    timestampRight: {
+        textAlign: "right",
+    },
+    typingContainer: {
+        flexDirection: "row",
+        alignItems: "flex-end",
+        marginBottom: 16,
+        alignSelf: "flex-start",
+    },
+    typingBubble: {
+        backgroundColor: "#fff",
+        borderRadius: 18,
+        borderBottomLeftRadius: 4,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        elevation: 1,
+    },
+    dotsRow: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    dot: {
+        width: 7,
+        height: 7,
+        borderRadius: 4,
+        backgroundColor: "#0891b2",
+        marginHorizontal: 3,
     },
     quickActions: {
         paddingHorizontal: 16,
@@ -427,7 +486,6 @@ const styles = StyleSheet.create({
     },
     quickActionButton: {
         flexDirection: "row",
-        gap: 10,
         paddingHorizontal: 20,
         paddingVertical: 14,
         backgroundColor: "#0891b2",
@@ -444,6 +502,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "700",
         color: "#fff",
+        marginLeft: 10,
     },
     inputContainer: {
         paddingHorizontal: 16,
@@ -454,7 +513,6 @@ const styles = StyleSheet.create({
     },
     inputWrapper: {
         flexDirection: "row",
-        gap: 10,
         alignItems: "flex-end",
     },
     msgInput: {
@@ -463,12 +521,12 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        paddingTop: 10,
         fontSize: 15,
         color: "#1e293b",
         maxHeight: 120,
         borderWidth: 1,
         borderColor: "#e2e8f0",
+        marginRight: 10,
     },
     sendButton: {
         width: 44,

@@ -349,6 +349,7 @@ export default function LandingScreen() {
             }}
             isFavorite={false}
             compact
+            seasonalPricings={item.seasonalPricings}
           />
         )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
