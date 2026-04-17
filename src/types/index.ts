@@ -14,19 +14,31 @@ export interface Homestay {
   address: string;
   districtName?: string;
   provinceName?: string;
+  city?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
   pricePerNight: number;
   maxGuests: number;
   bedrooms?: number;
   bathrooms?: number;
+  area?: number;
   images: string[];
   amenities: string[];
+  amenityIds?: string[];
   ownerName?: string;
+  ownerId?: string;
+  status?: string;
   depositPercentage?: number;
+  cancellationPolicy?: string;
+  houseRules?: string;
   averageRating?: number;
   reviewCount?: number;
   facilities?: string[];
   rules?: string[];
   seasonalPricings?: SeasonalPricing[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SeasonalPricing {

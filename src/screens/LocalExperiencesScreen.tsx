@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     emptyTitle: { fontSize: 16, fontWeight: "700", color: "#0f172a" },
     emptyDesc: { fontSize: 14, color: "#64748b" },
 
-    row: { gap: 12, marginBottom: 12 },
+    row: { gap: 12, marginBottom: 12, alignItems: "stretch" },
     grid: { paddingBottom: 20 },
 
     card: {
@@ -351,17 +351,18 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.08,
         shadowRadius: 12,
         elevation: 3,
+        flex: 1,
     },
-    cardImage: { width: "100%", height: 140, backgroundColor: "#f8fafc" },
+    cardImage: { width: "100%", height: 140, backgroundColor: "#f8fafc", flexShrink: 0 },
     noImage: { justifyContent: "center", alignItems: "center" },
-    cardBody: { padding: 12 },
-    cardName: { fontSize: 14, fontWeight: "800", color: "#1e293b", marginBottom: 4, lineHeight: 18 },
-    cardCategory: { fontSize: 11, color: "#0891b2", fontWeight: "700", marginBottom: 4, textTransform: "uppercase" },
-    cardHomestay: { fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: "500" },
-    cardDivider: { marginVertical: 8, backgroundColor: "#f1f5f9" },
-    cardPriceRow: { flexDirection: "row", alignItems: "baseline", gap: 3 },
-    cardPrice: { fontSize: 14, fontWeight: "800", color: "#059669" },
-    cardUnit: { fontSize: 12, color: "#94a3b8", fontWeight: "500" },
+    cardBody: { padding: 12, minHeight: 130, justifyContent: "space-between", flex: 1 },
+    cardName: { fontSize: 14, fontWeight: "800", color: "#1e293b", marginBottom: 4, lineHeight: 18, maxHeight: 36 },
+    cardCategory: { fontSize: 11, color: "#0891b2", fontWeight: "700", marginBottom: 3, textTransform: "uppercase", maxHeight: 16 },
+    cardHomestay: { fontSize: 12, color: "#64748b", marginBottom: 6, fontWeight: "500", maxHeight: 18 },
+    cardDivider: { marginVertical: 6, backgroundColor: "#f1f5f9" },
+    cardPriceRow: { flexDirection: "row", alignItems: "baseline", gap: 3, minHeight: 18 },
+    cardPrice: { fontSize: 14, fontWeight: "800", color: "#059669", marginBottom: 0 },
+    cardUnit: { fontSize: 12, color: "#94a3b8", fontWeight: "500", marginBottom: 0 },
 
     // Modal
     modalOverlay: {
