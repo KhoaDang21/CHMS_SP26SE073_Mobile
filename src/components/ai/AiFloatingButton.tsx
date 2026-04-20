@@ -164,6 +164,12 @@ export default function AiFloatingButton() {
         try { await sendMessage(msg); } catch { showToast("Lỗi khi gửi tin nhắn", "error"); }
     }, [inputText, sending, sendMessage]);
 
+    const handleInputFocus = useCallback(() => {
+        setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+        }, 300);
+    }, []);
+
     const handleClear = useCallback(async () => {
         try { await clearHistory(); showToast("Đã xóa lịch chat", "success"); } catch { showToast("Không thể xóa", "error"); }
     }, [clearHistory]);
@@ -315,7 +321,10 @@ export default function AiFloatingButton() {
                     />
 
                     {/* Input */}
-                    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        enabled
+                    >
                         <View style={s.inputRow}>
                             <TextInput
                                 style={s.input}
@@ -327,6 +336,7 @@ export default function AiFloatingButton() {
                                 editable={!sending}
                                 onSubmitEditing={handleSend}
                                 blurOnSubmit={false}
+                                onFocus={handleInputFocus}
                             />
                             <TouchableOpacity
                                 style={[s.sendBtn, (!inputText.trim() || sending) && s.sendBtnDisabled]}
@@ -459,15 +469,15 @@ const s = StyleSheet.create({
     },
     input: {
         flex: 1,
-        backgroundColor: "#f8fafc",
-        borderRadius: 18,
+        backgroundColor: "#fff",
+        borderRadius: 14,
         paddingHorizontal: 15,
-        paddingVertical: 10,
+        paddingVertical: 13,
         fontSize: 14,
         color: "#1e293b",
         maxHeight: 100,
-        borderWidth: 1,
-        borderColor: "#e2e8f0",
+        borderWidth: 1.5,
+        borderColor: "#cbd5e1",
         marginRight: 10,
     },
     sendBtn: {

@@ -27,6 +27,7 @@ import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -50,6 +51,24 @@ interface Review {
 }
 
 const { width } = Dimensions.get("window");
+
+// Get active seasonal pricing for display (not based on dates, just currently active)
+const getActiveSeasonalPrice = (seasonalPricings?: any): number | null => {
+  if (!Array.isArray(seasonalPricings) || seasonalPricings.length === 0) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const active = seasonalPricings.find((sp: any) => {
+    if (sp.status && sp.status !== "ACTIVE") return false;
+    const start = new Date(sp.startDate);
+    const end = new Date(sp.endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return today >= start && today <= end;
+  });
+
+  return active?.price ?? null;
+};
 
 // Amenity icon mapping
 const getAmenityIcon = (amenityName: string): keyof typeof MaterialCommunityIcons.glyphMap => {
@@ -102,6 +121,8 @@ export default function HomestayDetailScreen() {
   const [selectedExperiences, setSelectedExperiences] = useState<SelectedExperience[]>([]);
   const [experiencePickerVisible, setExperiencePickerVisible] = useState(false);
   const [experiencesLoading, setExperiencesLoading] = useState(false);
+  const [selectedExperienceDetail, setSelectedExperienceDetail] = useState<Experience | null>(null);
+  const [experienceDetailVisible, setExperienceDetailVisible] = useState(false);
 
   // Promotions
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -598,7 +619,19 @@ export default function HomestayDetailScreen() {
                 </View>
               ) : null}
               <View style={styles.priceChip}>
-                <Text style={styles.priceValue}>₫{item.pricePerNight.toLocaleString("vi-VN")}</Text>
+                <Text style={styles.priceValue}>₫{(() => {
+                  // Nếu đã chọn ngày và có calculate result
+                  if (nights > 0 && typeof calcResult === 'number') {
+                    return effectivePricePerNight.toLocaleString("vi-VN");
+                  }
+                  // Nếu có active seasonal pricing, hiển thị giá mùa
+                  const activeSeasonalPrice = getActiveSeasonalPrice(item?.seasonalPricings);
+                  if (activeSeasonalPrice) {
+                    return activeSeasonalPrice.toLocaleString("vi-VN");
+                  }
+                  // Fallback về giá niêm yết
+                  return item?.pricePerNight.toLocaleString("vi-VN");
+                })()}</Text>
                 <Text style={styles.priceUnit}>/đêm</Text>
               </View>
             </View>
@@ -885,6 +918,16 @@ export default function HomestayDetailScreen() {
                   </View>
                 </View>
 
+                {/* Phone Input - moved here after guest counter */}
+                <Input
+                  label="Số điện thoại liên hệ"
+                  placeholder="Nhập số điện thoại"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  icon="phone-outline"
+                />
+
                 {/* Experiences Section */}
                 {experiences.length > 0 && (
                   <>
@@ -936,6 +979,18 @@ export default function HomestayDetailScreen() {
                                   <Text style={styles.expPrice}>{exp.price.toLocaleString("vi-VN")}đ</Text>
                                   <Text style={styles.expUnit}>/người</Text>
                                 </Text>
+                              </TouchableOpacity>
+
+                              {/* Info icon to view details */}
+                              <TouchableOpacity
+                                style={{ padding: 8 }}
+                                onPress={() => {
+                                  setSelectedExperienceDetail(exp);
+                                  setExperienceDetailVisible(true);
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <MaterialCommunityIcons name="information-outline" size={18} color="#0891b2" />
                               </TouchableOpacity>
 
                               {/* Qty — chỉ hiện khi đã chọn */}
@@ -1095,15 +1150,6 @@ export default function HomestayDetailScreen() {
                   </View>
                 </View>
 
-                <Input
-                  label="Số điện thoại liên hệ"
-                  placeholder="Nhập số điện thoại"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  icon="phone-outline"
-                />
-
                 <Button
                   title={booking ? "Đang đặt phòng..." : `Đặt phòng · ₫${finalPrice.toLocaleString("vi-VN")}`}
                   onPress={handleBooking}
@@ -1175,6 +1221,86 @@ export default function HomestayDetailScreen() {
           onClear={handleClearCoupon}
           onClose={() => setCouponPickerVisible(false)}
         />
+
+        {/* Experience Details Modal */}
+        {selectedExperienceDetail && (
+          <Modal
+            visible={experienceDetailVisible}
+            animationType="slide"
+            transparent={false}
+            onRequestClose={() => setExperienceDetailVisible(false)}
+          >
+            <SafeAreaView style={styles.detailsContainer} edges={["top"]}>
+              {/* Header */}
+              <View style={styles.detailsHeader}>
+                <TouchableOpacity
+                  style={styles.detailsCloseBtn}
+                  onPress={() => setExperienceDetailVisible(false)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color="#1e293b" />
+                </TouchableOpacity>
+                <Text style={styles.detailsTitle} numberOfLines={1}>Chi tiết dịch vụ</Text>
+                <View style={{ width: 40 }} />
+              </View>
+
+              {/* Details */}
+              <ScrollView contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator={false}>
+                {/* Image */}
+                {selectedExperienceDetail.image && (
+                  <View style={styles.detailsImageWrapper}>
+                    <Image
+                      source={{ uri: selectedExperienceDetail.image }}
+                      style={styles.detailsImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
+
+                {/* Content Card */}
+                <View style={styles.detailsCard}>
+                  <Text style={styles.detailsName}>{selectedExperienceDetail.name}</Text>
+
+                  {selectedExperienceDetail.category && (
+                    <View style={styles.detailsCategoryBadge}>
+                      <MaterialCommunityIcons name="tag-outline" size={14} color="#0891b2" />
+                      <Text style={styles.detailsCategoryText}>{selectedExperienceDetail.category}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.detailsPricBox}>
+                    <Text style={styles.detailsPriceLabel}>Giá dịch vụ</Text>
+                    <View style={styles.detailsPriceRow}>
+                      <Text style={styles.detailsPrice}>
+                        ₫{selectedExperienceDetail.price.toLocaleString("vi-VN")}
+                      </Text>
+                      <Text style={styles.detailsPriceUnit}>/người</Text>
+                    </View>
+                  </View>
+
+                  {selectedExperienceDetail.description && (
+                    <>
+                      <Text style={styles.detailsSectionTitle}>Mô tả</Text>
+                      <Text style={styles.detailsDescription}>{selectedExperienceDetail.description}</Text>
+                    </>
+                  )}
+
+                  <View style={{ height: 20 }} />
+                </View>
+
+                <View style={{ height: 30 }} />
+              </ScrollView>
+
+              {/* Action */}
+              <View style={styles.detailsActionBar}>
+                <Button
+                  title="Đóng"
+                  onPress={() => setExperienceDetailVisible(false)}
+                />
+              </View>
+            </SafeAreaView>
+          </Modal>
+        )}
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -1482,4 +1608,25 @@ const styles = StyleSheet.create({
   couponAppliedBenefitLabel: { fontSize: 13, color: "#059669", fontWeight: "600" },
   couponAppliedBenefitPrice: { fontSize: 15, fontWeight: "700", color: "#10b981" },
   couponBtn: { marginBottom: 0 },
+
+  // Experience Details Modal
+  detailsContainer: { flex: 1, backgroundColor: "#f8fafc" },
+  detailsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 14, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
+  detailsCloseBtn: { width: 40, height: 40, borderRadius: 10, justifyContent: "center", alignItems: "center", backgroundColor: "#f1f5f9" },
+  detailsTitle: { flex: 1, fontSize: 16, fontWeight: "700", color: "#0f172a", marginHorizontal: 12 },
+  detailsContent: { paddingHorizontal: 16, paddingVertical: 12 },
+  detailsImageWrapper: { marginHorizontal: -16, marginBottom: 20, overflow: "hidden", backgroundColor: "#fff", borderRadius: 16 },
+  detailsImage: { width: "100%", height: 280, backgroundColor: "#e2e8f0" },
+  detailsCard: { backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 16, paddingVertical: 20, marginBottom: 16, borderWidth: 1, borderColor: "#e2e8f0" },
+  detailsName: { fontSize: 22, fontWeight: "800", color: "#0f172a", marginBottom: 14 },
+  detailsCategoryBadge: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#e0f2fe", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, alignSelf: "flex-start", marginBottom: 16, borderWidth: 1, borderColor: "#bae6fd" },
+  detailsCategoryText: { fontSize: 12, fontWeight: "600", color: "#0369a1" },
+  detailsPricBox: { backgroundColor: "#f0fdf4", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 20, borderWidth: 1, borderColor: "#dcfce7" },
+  detailsPriceLabel: { fontSize: 12, fontWeight: "600", color: "#059669", marginBottom: 6 },
+  detailsPriceRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  detailsPrice: { fontSize: 24, fontWeight: "800", color: "#0891b2" },
+  detailsPriceUnit: { fontSize: 12, color: "#64748b", fontWeight: "500" },
+  detailsSectionTitle: { fontSize: 15, fontWeight: "700", color: "#0f172a", marginBottom: 10, marginTop: 8 },
+  detailsDescription: { fontSize: 14, color: "#475569", lineHeight: 22, fontWeight: "500" },
+  detailsActionBar: { paddingHorizontal: 16, paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#e2e8f0", backgroundColor: "#fff" },
 });

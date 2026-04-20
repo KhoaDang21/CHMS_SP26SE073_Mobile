@@ -250,11 +250,30 @@ export default function BookingEditScreen() {
                         </View>
                     </View>
 
-                    {/* Guests & Contact */}
+                    {/* Phone Input - moved to top */}
+                    <View style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <MaterialCommunityIcons name="phone-outline" size={18} color="#0891b2" />
+                            <Text style={styles.cardTitle}>Số điện thoại liên hệ</Text>
+                        </View>
+                        <View style={styles.inputWrapper}>
+                            <MaterialCommunityIcons name="phone-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.textInput}
+                                value={phone}
+                                onChangeText={setPhone}
+                                placeholder="0123 456 789"
+                                placeholderTextColor="#cbd5e1"
+                                keyboardType="phone-pad"
+                            />
+                        </View>
+                    </View>
+
+                    {/* Guests */}
                     <View style={styles.card}>
                         <View style={styles.cardHeader}>
                             <MaterialCommunityIcons name="account-group-outline" size={18} color="#0891b2" />
-                            <Text style={styles.cardTitle}>Khách & Liên hệ</Text>
+                            <Text style={styles.cardTitle}>Số khách</Text>
                         </View>
 
                         {/* Guest counter */}
@@ -279,21 +298,7 @@ export default function BookingEditScreen() {
                             </View>
                         </View>
 
-                        <Divider style={{ marginVertical: 12 }} />
-
-                        {/* Phone */}
-                        <Text style={styles.fieldLabel}>Số điện thoại liên hệ</Text>
-                        <View style={styles.inputWrapper}>
-                            <MaterialCommunityIcons name="phone-outline" size={18} color="#94a3b8" style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.textInput}
-                                value={phone}
-                                onChangeText={setPhone}
-                                placeholder="0123 456 789"
-                                placeholderTextColor="#cbd5e1"
-                                keyboardType="phone-pad"
-                            />
-                        </View>
+                        {/* End of guest counter */}
                     </View>
 
                     {/* Special requests */}

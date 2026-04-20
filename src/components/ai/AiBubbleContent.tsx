@@ -12,6 +12,8 @@ interface RecommendedHomestay {
     Address?: string;
     price?: number;
     Price?: number;
+    description?: string;
+    Description?: string;
     amenities?: string;
     Amenities?: string;
     thumbnailUrl?: string;
@@ -24,6 +26,7 @@ interface AiBubbleContentProps {
     message: string;
     recommendedHomestays?: RecommendedHomestay[];
     isRecommendation?: boolean;
+    onNavigateToHomestay?: (id: string) => void;
 }
 
 /**
@@ -89,21 +92,30 @@ function formatMessage(text: string): string[] {
     return [text];
 }
 
-function HomestayCard({ homestay }: { homestay: RecommendedHomestay }) {
+function HomestayCard({ homestay, onNavigate }: { homestay: RecommendedHomestay; onNavigate?: (id: string) => void }) {
     const navigation = useNavigation<any>();
 
     const id = homestay.id || homestay.Id || '';
     const name = homestay.name || homestay.Name || 'Homestay';
     const address = homestay.address || homestay.Address || 'Đang cập nhật';
     const price = homestay.price || homestay.Price || 0;
+    const description = homestay.description || homestay.Description || '';
     const amenities = homestay.amenities || homestay.Amenities || '';
     const thumbnail = homestay.thumbnailUrl || homestay.ThumbnailUrl || '';
     const rating = homestay.rating || homestay.Rating || 0;
 
+    const handlePress = () => {
+        if (onNavigate) {
+            onNavigate(id);
+        } else {
+            navigation.navigate('HomestayDetail', { id });
+        }
+    };
+
     return (
         <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate('HomestayDetail', { id })}
+            onPress={handlePress}
             activeOpacity={0.9}
         >
             <View style={styles.cardImageContainer}>
@@ -136,15 +148,19 @@ function HomestayCard({ homestay }: { homestay: RecommendedHomestay }) {
                     </View>
                 )}
 
+                {description ? (
+                    <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
+                ) : null}
+
                 {amenities ? (
                     <View style={styles.amenitiesBox}>
-                        <Text style={styles.cardAmenities} numberOfLines={2}>🏠 {amenities}</Text>
+                        <Text style={styles.cardAmenities} numberOfLines={1}>🏠 {amenities}</Text>
                     </View>
                 ) : null}
 
                 <TouchableOpacity
                     style={styles.bookButton}
-                    onPress={() => navigation.navigate('HomestayDetail', { id })}
+                    onPress={handlePress}
                     activeOpacity={0.8}
                 >
                     <Text style={styles.bookButtonText}>Xem & Đặt</Text>
@@ -158,6 +174,7 @@ export const AiBubbleContent = ({
     message,
     recommendedHomestays,
     isRecommendation,
+    onNavigateToHomestay,
 }: AiBubbleContentProps) => {
     const lines = formatMessage(message);
     const hasHomestays = isRecommendation && Array.isArray(recommendedHomestays) && recommendedHomestays.length > 0;
@@ -183,20 +200,26 @@ export const AiBubbleContent = ({
 
             {/* Recommended homestay cards */}
             {hasHomestays && (
-                <View style={styles.cardsSection}>
-                    <Text style={styles.cardsSectionTitle}>🏠 Gợi ý cho bạn:</Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.scrollContent}
-                    >
-                        {recommendedHomestays!.map((homestay, idx) => (
-                            <View key={idx} style={styles.cardWrapper}>
-                                <HomestayCard homestay={homestay} />
-                            </View>
-                        ))}
-                    </ScrollView>
-                </View>
+                <ScrollView
+                    style={styles.cardsSectionScroll}
+                    scrollEnabled={true}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.cardsSection}>
+                        <Text style={styles.cardsSectionTitle}>🏠 Gợi ý cho bạn:</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.scrollContent}
+                        >
+                            {recommendedHomestays!.map((homestay, idx) => (
+                                <View key={idx} style={styles.cardWrapper}>
+                                    <HomestayCard homestay={homestay} onNavigate={onNavigateToHomestay} />
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </ScrollView>
             )}
         </View>
     );
@@ -234,6 +257,10 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#e2e8f0',
         marginHorizontal: -8,
+        maxHeight: 320,
+    },
+    cardsSectionScroll: {
+        maxHeight: 320,
     },
     cardsSectionTitle: {
         fontSize: 12,
@@ -277,55 +304,75 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     cardInfo: {
-        padding: 10,
+        paddingHorizontal: 13,
+        paddingVertical: 12,
+        height: 270,
+        justifyContent: 'space-between',
     },
     cardName: {
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: '700',
         color: '#111827',
-        lineHeight: 18,
-        marginBottom: 6,
+        lineHeight: 20,
+        marginBottom: 8,
+        height: 40,
     },
     cardRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 7,
+        gap: 8,
     },
     cardAddress: {
         fontSize: 12,
         color: '#6b7280',
         flex: 1,
+        lineHeight: 16,
+        maxHeight: 32,
     },
     cardPrice: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '700',
         color: '#111827',
     },
     cardPriceUnit: {
         fontSize: 11,
         color: '#6b7280',
+        marginLeft: 2,
     },
     cardRating: {
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '600',
         color: '#f59e0b',
+        marginLeft: 4,
+    },
+    cardDescription: {
+        fontSize: 12,
+        color: '#475569',
+        lineHeight: 17,
+        maxHeight: 40,
     },
     amenitiesBox: {
-        backgroundColor: '#fff7ed',
+        backgroundColor: '#fef3c7',
         borderRadius: 8,
-        padding: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
         borderWidth: 1,
-        borderColor: '#fed7aa',
+        borderColor: '#fbbf24',
+        marginTop: 2,
+        height: 36,
     },
     cardAmenities: {
-        fontSize: 11,
-        color: '#374151',
-        lineHeight: 16,
+        fontSize: 12,
+        color: '#92400e',
+        lineHeight: 17,
+        fontWeight: '500',
+        maxHeight: 34,
     },
     bookButton: {
-        marginTop: 4,
-        paddingVertical: 8,
-        borderRadius: 20,
+        marginTop: 10,
+        paddingVertical: 10,
+        borderRadius: 10,
         backgroundColor: '#0891b2',
         alignItems: 'center',
     },
