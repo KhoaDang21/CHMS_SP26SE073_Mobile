@@ -38,6 +38,12 @@
           }
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Ứng dụng cần vị trí để check-in hidden gems chính xác."
+        }
+      ],
       "expo-web-browser"
     ]
   }

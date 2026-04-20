@@ -2,10 +2,10 @@ import {
   AlertDialog,
   Button,
   CouponInputModal,
-  DatePickerModal,
   Divider,
   Header,
   Input,
+  InlineCalendar,
   LoadingIndicator,
 } from "@/components";
 import { ExperiencePickerModal, type SelectedExperience } from "@/components/ExperiencePickerModal";
@@ -22,11 +22,12 @@ import type { Experience, Homestay } from "@/types";
 import { showToast } from "@/utils/toast";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -103,13 +104,14 @@ export default function HomestayDetailScreen() {
   const [loading, setLoading] = useState(!initialHomestay);
   const [booking, setBooking] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [activePicker, setActivePicker] = useState<"checkIn" | "checkOut" | null>(null);
+  const [showCheckInCalendar, setShowCheckInCalendar] = useState(false);
+  const [showCheckOutCalendar, setShowCheckOutCalendar] = useState(false);
   const [successDialogVisible, setSuccessDialogVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const [checkInDate, setCheckInDate] = useState(new Date());
-  const [checkOutDate, setCheckOutDate] = useState(new Date(Date.now() + 86400000));
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
   const [guestCount, setGuestCount] = useState(1);
   const [phone, setPhone] = useState("");
   const [hasSession, setHasSession] = useState(false);
@@ -135,6 +137,10 @@ export default function HomestayDetailScreen() {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponPickerVisible, setCouponPickerVisible] = useState(false);
   const [couponValidating, setCouponValidating] = useState(false);
+
+  // Occupied dates — để check conflict khi booking
+  const [occupiedDateRanges, setOccupiedDateRanges] = useState<Array<{ checkIn: string; checkOut: string }>>([]);
+  const [occupiedDatesLoading, setOccupiedDatesLoading] = useState(false);
 
   // Seasonal pricing — gọi calculate API khi dates thay đổi
   const [calcResult, setCalcResult] = useState<number | null>(null);
@@ -168,6 +174,25 @@ export default function HomestayDetailScreen() {
     };
     load();
   }, [effectiveHomestayId, initialHomestay]);
+
+  // Fetch occupied dates
+  useEffect(() => {
+    if (!effectiveHomestayId) return;
+    let mounted = true;
+    const loadOccupiedDates = async () => {
+      setOccupiedDatesLoading(true);
+      try {
+        const ranges = await publicHomestayService.getOccupiedDates(effectiveHomestayId);
+        if (mounted) setOccupiedDateRanges(Array.isArray(ranges) ? ranges : []);
+      } catch (error) {
+        if (mounted) setOccupiedDateRanges([]);
+      } finally {
+        if (mounted) setOccupiedDatesLoading(false);
+      }
+    };
+    loadOccupiedDates();
+    return () => { mounted = false; };
+  }, [effectiveHomestayId]);
 
   // Fetch reviews
   useEffect(() => {
@@ -256,7 +281,7 @@ export default function HomestayDetailScreen() {
 
   // Gọi calculate API để lấy giá thực tế (có tính seasonal pricing)
   useEffect(() => {
-    if (!effectiveHomestayId || nights <= 0) {
+    if (!effectiveHomestayId || !checkInDate || !checkOutDate || nights <= 0) {
       setCalcResult(null);
       return;
     }
@@ -333,24 +358,101 @@ export default function HomestayDetailScreen() {
     }
   }, [effectiveHomestayId, isFavorite, hasSession, navigation]);
 
-  const handleConfirmDate = (date: Date) => {
-    if (activePicker === "checkIn") {
-      setCheckInDate(date);
-      // Nếu checkout <= checkin mới, tự đẩy checkout lên 1 ngày
-      if (checkOutDate <= date) {
-        setCheckOutDate(new Date(date.getTime() + 86400000));
+  const parseYmdToDate = (value: string): Date | null => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    const dt = new Date(year, month - 1, day);
+    dt.setHours(0, 0, 0, 0);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  };
+
+  const addDays = (date: Date, days: number): Date => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  };
+
+  // Tìm checkout tối đa: ngày checkin của occupied range đầu tiên SAU check-in đã chọn
+  const getMaxCheckOutDate = (): Date | null => {
+    if (!checkInDate) return null;
+    let nearestBlockStart: Date | null = null;
+
+    occupiedDateRanges.forEach((range) => {
+      const occupiedStart = parseYmdToDate(range.checkIn);
+      const occupiedEnd = parseYmdToDate(range.checkOut);
+      // Chỉ xét range nằm SAU checkInDate (occupiedEnd > checkInDate)
+      if (!occupiedStart || !occupiedEnd || occupiedEnd <= checkInDate) return;
+
+      if (!nearestBlockStart || occupiedStart < nearestBlockStart) {
+        nearestBlockStart = occupiedStart;
       }
-    } else if (activePicker === "checkOut") {
-      if (date <= checkInDate) {
+    });
+
+    return nearestBlockStart;
+  };
+
+  const maxCheckOutDate = useMemo(() => getMaxCheckOutDate(), [checkInDate, occupiedDateRanges]);
+
+  const hasDateConflict = (checkIn: Date, checkOut: Date): boolean => {
+    return occupiedDateRanges.some((range) => {
+      const occupiedStart = parseYmdToDate(range.checkIn);
+      const occupiedEnd = parseYmdToDate(range.checkOut);
+      if (!occupiedStart || !occupiedEnd || occupiedEnd <= occupiedStart) return false;
+      // Conflict khi khoảng [checkIn, checkOut) giao với [occupiedStart, occupiedEnd)
+      // checkOut === occupiedStart là hợp lệ (checkout đúng ngày checkin tiếp theo)
+      return checkIn < occupiedEnd && checkOut > occupiedStart;
+    });
+  };
+
+  const handleConfirmDate = (date: Date) => {
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+
+    if (showCheckInCalendar) {
+      const checkInOccupied = occupiedDateRanges.some((range) => {
+        const occupiedStart = parseYmdToDate(range.checkIn);
+        const occupiedEnd = parseYmdToDate(range.checkOut);
+        if (!occupiedStart || !occupiedEnd) return false;
+        return normalized >= occupiedStart && normalized < occupiedEnd;
+      });
+
+      if (checkInOccupied) {
+        showToast("Ngày nhận này đã có khách đặt, vui lòng chọn ngày khác", "warning");
+        return;
+      }
+
+      setCheckInDate(normalized);
+      // Reset checkout nếu checkout cũ không còn hợp lệ
+      if (checkOutDate && checkOutDate <= normalized) {
+        setCheckOutDate(null);
+      }
+      setShowCheckInCalendar(false);
+    } else if (showCheckOutCalendar) {
+      const currentCheckIn = checkInDate;
+      if (!currentCheckIn) {
+        showToast("Vui lòng chọn ngày nhận phòng trước", "warning");
+        return;
+      }
+      if (normalized <= currentCheckIn) {
         showToast("Ngày trả phòng phải sau ngày nhận phòng", "warning");
         return;
       }
-      setCheckOutDate(date);
+      if (maxCheckOutDate && normalized > maxCheckOutDate) {
+        showToast("Ngày trả phòng không được vượt quá ngày có khách booking tiếp theo", "warning");
+        return;
+      }
+      if (hasDateConflict(currentCheckIn, normalized)) {
+        showToast("Khoảng ngày này trùng với lịch đã đặt, vui lòng chọn ngày khác", "warning");
+        return;
+      }
+      setCheckOutDate(normalized);
+      setShowCheckOutCalendar(false);
     }
-    setActivePicker(null);
   };
 
-  const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000);
+  const nights = (checkInDate && checkOutDate)
+    ? Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000)
+    : 0;
   // Dùng calcResult từ BE nếu có (tính seasonal), fallback về pricePerNight * nights
   const baseTotal = item ? item.pricePerNight * nights : 0;
   const computedTotal = (typeof calcResult === "number" && Number.isFinite(calcResult) && calcResult > 0)
@@ -371,10 +473,6 @@ export default function HomestayDetailScreen() {
         : Math.min(selectedPromotion.discountAmount, totalPrice + experienceTotal)
       : 0;
   const manualCouponDiscount = selectedPromotion ? 0 : couponDiscount;
-  const finalPrice = Math.max(
-    0,
-    totalPrice + experienceTotal - selectedPromotionDiscount - manualCouponDiscount,
-  );
 
   const avgRating =
     reviews.length > 0
@@ -440,6 +538,14 @@ export default function HomestayDetailScreen() {
       showToast("Vui lòng nhập số điện thoại liên hệ", "warning");
       return;
     }
+    if (!checkInDate || !checkOutDate) {
+      showToast("Vui lòng chọn ngày nhận và trả phòng", "warning");
+      return;
+    }
+    if (hasDateConflict(checkInDate, checkOutDate)) {
+      showToast("Khoảng ngày đã chọn trùng với lịch đặt hiện có, vui lòng chọn ngày khác", "error");
+      return;
+    }
     try {
       setBooking(true);
 
@@ -461,8 +567,8 @@ export default function HomestayDetailScreen() {
 
       const res = await bookingService.createBooking({
         homestayId: item.id,
-        checkIn: checkInDate.toISOString().split("T")[0],
-        checkOut: checkOutDate.toISOString().split("T")[0],
+        checkIn: checkInDate!.toISOString().split("T")[0],
+        checkOut: checkOutDate!.toISOString().split("T")[0],
         guestsCount: guestCount,
         contactPhone: phone,
         specialRequests: specialRequests || undefined,
@@ -474,7 +580,7 @@ export default function HomestayDetailScreen() {
         const createdId = res.data.id;
 
         // Prepare booking data like FE does
-        const totalNights = Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / 86400000);
+        const totalNights = Math.ceil((checkOutDate!.getTime() - checkInDate!.getTime()) / 86400000);
         const totalPrice = res.data.totalPrice ?? (item!.pricePerNight * totalNights);
         const depositPct = (item?.depositPercentage ?? 20) / 100;
         const depositAmount = res.data.depositAmount ?? (totalPrice * depositPct);
@@ -484,8 +590,8 @@ export default function HomestayDetailScreen() {
           id: createdId,
           homestayId: item!.id,
           homestayName: item!.name,
-          checkIn: checkInDate.toISOString().split('T')[0],
-          checkOut: checkOutDate.toISOString().split('T')[0],
+          checkIn: checkInDate!.toISOString().split('T')[0],
+          checkOut: checkOutDate!.toISOString().split('T')[0],
           totalNights,
           guestsCount: guestCount,
           pricePerNight: item!.pricePerNight,
@@ -520,6 +626,7 @@ export default function HomestayDetailScreen() {
     selectedPromotion?.id,
     hasSession,
     navigation,
+    occupiedDateRanges,
   ]);
 
   if (loading) {
@@ -709,6 +816,37 @@ export default function HomestayDetailScreen() {
             </>
           ) : null}
 
+          {/* Map Section */}
+          {(() => {
+            const lat = Number(item.latitude);
+            const lng = Number(item.longitude);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+            return (
+              <>
+                <Divider />
+                <View style={styles.section}>
+                  <View style={styles.mapHeader}>
+                    <MaterialCommunityIcons name="map-marker-outline" size={18} color="#0891b2" />
+                    <Text style={styles.sectionTitle}>Vị trí trên bản đồ</Text>
+                  </View>
+                  <Text style={styles.mapCoords}>
+                    {item.address ? `${item.address} · ` : ""}
+                    {lat.toFixed(5)}, {lng.toFixed(5)}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.mapButton}
+                    onPress={() => Linking.openURL(mapsUrl)}
+                    activeOpacity={0.85}
+                  >
+                    <MaterialCommunityIcons name="google-maps" size={18} color="#fff" />
+                    <Text style={styles.mapButtonText}>Xem trên Google Maps</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            );
+          })()}
+
           {/* Reviews Section */}
           <Divider />
           <View style={styles.section}>
@@ -832,26 +970,98 @@ export default function HomestayDetailScreen() {
 
             {hasSession ? (
               <>
-                {/* Date Pickers */}
-                <View style={styles.dateRow}>
-                  <TouchableOpacity style={styles.dateBtn} onPress={() => setActivePicker("checkIn")}>
+                {/* Check-in Date Picker */}
+                <View style={styles.dateSection}>
+                  <TouchableOpacity
+                    style={styles.dateToggleBtn}
+                    onPress={() => setShowCheckInCalendar(!showCheckInCalendar)}
+                    activeOpacity={0.7}
+                  >
                     <MaterialCommunityIcons name="calendar-arrow-right" size={18} color="#0891b2" />
-                    <View>
-                      <Text style={styles.dateBtnLabel}>Nhận phòng</Text>
-                      <Text style={styles.dateBtnValue}>{checkInDate.toLocaleDateString("vi-VN")}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dateBtnLabel}>Ngày nhận phòng</Text>
+                      <Text style={[styles.dateBtnValue, !checkInDate && styles.dateBtnPlaceholder]}>
+                        {checkInDate ? checkInDate.toLocaleDateString("vi-VN") : "Chọn ngày nhận phòng"}
+                      </Text>
                     </View>
+                    <MaterialCommunityIcons
+                      name={showCheckInCalendar ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color="#0891b2"
+                    />
                   </TouchableOpacity>
-                  <View style={styles.dateArrow}>
-                    <MaterialCommunityIcons name="arrow-right" size={16} color="#94a3b8" />
-                  </View>
-                  <TouchableOpacity style={styles.dateBtn} onPress={() => setActivePicker("checkOut")}>
-                    <MaterialCommunityIcons name="calendar-arrow-left" size={18} color="#0891b2" />
-                    <View>
-                      <Text style={styles.dateBtnLabel}>Trả phòng</Text>
-                      <Text style={styles.dateBtnValue}>{checkOutDate.toLocaleDateString("vi-VN")}</Text>
-                    </View>
-                  </TouchableOpacity>
+
+                  {showCheckInCalendar && (
+                    <InlineCalendar
+                      value={checkInDate ?? new Date()}
+                      onSelect={handleConfirmDate}
+                      disabledDates={(date) => {
+                        const normalized = new Date(date);
+                        normalized.setHours(0, 0, 0, 0);
+                        return occupiedDateRanges.some((range) => {
+                          const occupiedStart = parseYmdToDate(range.checkIn);
+                          const occupiedEnd = parseYmdToDate(range.checkOut);
+                          if (!occupiedStart || !occupiedEnd) return false;
+                          return normalized >= occupiedStart && normalized < occupiedEnd;
+                        });
+                      }}
+                      minDate={new Date()}
+                    />
+                  )}
                 </View>
+
+                {/* Check-out Date Picker */}
+                <View style={styles.dateSection}>
+                  <TouchableOpacity
+                    style={styles.dateToggleBtn}
+                    onPress={() => setShowCheckOutCalendar(!showCheckOutCalendar)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name="calendar-arrow-left" size={18} color="#0891b2" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dateBtnLabel}>Ngày trả phòng</Text>
+                      <Text style={[styles.dateBtnValue, !checkOutDate && styles.dateBtnPlaceholder]}>
+                        {checkOutDate ? checkOutDate.toLocaleDateString("vi-VN") : "Chọn ngày trả phòng"}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons
+                      name={showCheckOutCalendar ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color="#0891b2"
+                    />
+                  </TouchableOpacity>
+
+                  {showCheckOutCalendar && (
+                    <InlineCalendar
+                      value={checkOutDate ?? (checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date())}
+                      onSelect={handleConfirmDate}
+                      disabledDates={(date) => {
+                        const normalized = new Date(date);
+                        normalized.setHours(0, 0, 0, 0);
+                        if (!checkInDate || normalized <= checkInDate) return true;
+                        if (maxCheckOutDate && normalized > maxCheckOutDate) return true;
+                        return occupiedDateRanges.some((range) => {
+                          const occupiedStart = parseYmdToDate(range.checkIn);
+                          const occupiedEnd = parseYmdToDate(range.checkOut);
+                          if (!occupiedStart || !occupiedEnd) return false;
+                          return normalized > occupiedStart && normalized < occupiedEnd;
+                        });
+                      }}
+                      minDate={checkInDate ? new Date(checkInDate.getTime() + 86400000) : new Date()}
+                      maxDate={maxCheckOutDate ?? undefined}
+                    />
+                  )}
+                </View>
+
+                {/* Date conflict warning */}
+                {nights > 0 && checkInDate && checkOutDate && hasDateConflict(checkInDate, checkOutDate) && (
+                  <View style={styles.conflictWarning}>
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#b91c1c" />
+                    <Text style={styles.conflictWarningText}>
+                      Khoảng ngày này trùng với lịch đã đặt. Vui lòng chọn ngày khác.
+                    </Text>
+                  </View>
+                )}
 
                 {/* Nights summary */}
                 <View style={styles.nightsSummary}>
@@ -1044,9 +1254,11 @@ export default function HomestayDetailScreen() {
                     </View>
 
                     {selectedExperiences.length > 0 && (
-                      <View style={styles.expTotalBox}>
-                        <Text style={styles.expTotalLabel}>Tổng dịch vụ</Text>
-                        <Text style={styles.expTotalPrice}>+₫{experienceTotal.toLocaleString("vi-VN")}</Text>
+                      <View style={styles.expEstimateBox}>
+                        <MaterialCommunityIcons name="information-outline" size={14} color="#0891b2" />
+                        <Text style={styles.expEstimateText}>
+                          Ước tính dịch vụ thêm: ₫{experienceTotal.toLocaleString("vi-VN")} (tham khảo, thanh toán tại homestay)
+                        </Text>
                       </View>
                     )}
                   </>
@@ -1151,10 +1363,10 @@ export default function HomestayDetailScreen() {
                 </View>
 
                 <Button
-                  title={booking ? "Đang đặt phòng..." : `Đặt phòng · ₫${finalPrice.toLocaleString("vi-VN")}`}
+                  title={booking ? "Đang đặt phòng..." : `Đặt phòng · ₫${(totalPrice - selectedPromotionDiscount - manualCouponDiscount > 0 ? totalPrice - selectedPromotionDiscount - manualCouponDiscount : totalPrice).toLocaleString("vi-VN")}`}
                   onPress={handleBooking}
                   loading={booking}
-                  disabled={booking}
+                  disabled={booking || nights <= 0 || (checkInDate != null && checkOutDate != null && hasDateConflict(checkInDate, checkOutDate)) || !phone.trim()}
                   size="large"
                 />
               </>
@@ -1163,15 +1375,6 @@ export default function HomestayDetailScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
-
-        <DatePickerModal
-          visible={activePicker !== null}
-          value={activePicker === "checkOut" ? checkOutDate : checkInDate}
-          minimumDate={activePicker === "checkOut" ? new Date(checkInDate.getTime() + 86400000) : new Date()}
-          title={activePicker === "checkIn" ? "Chọn ngày nhận phòng" : "Chọn ngày trả phòng"}
-          onConfirm={handleConfirmDate}
-          onCancel={() => setActivePicker(null)}
-        />
 
         <AlertDialog
           visible={successDialogVisible}
@@ -1417,15 +1620,21 @@ const styles = StyleSheet.create({
   amenityText: { fontSize: 12, color: "#059669", fontWeight: "600", flex: 1 },
 
   // Booking
-  dateRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
-  dateBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: "#ecf9ff", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
-    borderWidth: 1, borderColor: "#cffafe"
+  dateSection: {
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    overflow: "hidden",
+  },
+  dateToggleBtn: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: "#f8fafc", paddingHorizontal: 14, paddingVertical: 13,
+    borderBottomWidth: 1, borderBottomColor: "#e2e8f0"
   },
   dateBtnLabel: { fontSize: 11, color: "#0891b2", fontWeight: "600" },
   dateBtnValue: { fontSize: 14, fontWeight: "800", color: "#0d8fb2" },
-  dateArrow: { paddingHorizontal: 4 },
+  dateBtnPlaceholder: { color: "#94a3b8", fontWeight: "500" },
   nightsSummary: {
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: "#f1f5f9", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 16,
@@ -1448,6 +1657,13 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: "#fde68a",
   },
   seasonalWarningText: { fontSize: 11, color: "#92400e", flex: 1, marginLeft: 6, lineHeight: 16 },
+  conflictWarning: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#fee2e2", borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    marginBottom: 14, borderWidth: 1, borderColor: "#fecaca",
+  },
+  conflictWarningText: { fontSize: 12, color: "#991b1b", flex: 1, marginLeft: 8, fontWeight: "500", lineHeight: 17 },
   counterRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
   counterLabel: { fontSize: 14, fontWeight: "700", color: "#1e293b" },
   counter: { flexDirection: "row", alignItems: "center", gap: 14 },
@@ -1505,13 +1721,13 @@ const styles = StyleSheet.create({
   },
   expSubtotalLabel: { fontSize: 12, color: "#0369a1", fontWeight: "500" },
   expSubtotalPrice: { fontSize: 13, fontWeight: "700", color: "#0891b2" },
-  expTotalBox: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    backgroundColor: "#e0f2fe", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
-    marginBottom: 16, borderWidth: 1, borderColor: "#bae6fd",
+  expEstimateBox: {
+    flexDirection: "row", alignItems: "flex-start", gap: 6,
+    backgroundColor: "#eff6ff", borderRadius: 10, borderWidth: 1,
+    borderColor: "#bfdbfe", paddingHorizontal: 12, paddingVertical: 10,
+    marginBottom: 16,
   },
-  expTotalLabel: { fontSize: 13, fontWeight: "600", color: "#0369a1" },
-  expTotalPrice: { fontSize: 15, fontWeight: "800", color: "#0891b2" },
+  expEstimateText: { flex: 1, fontSize: 12, color: "#1d4ed8", lineHeight: 17 },
 
   // Reviews Styles
   reviewsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
@@ -1629,4 +1845,15 @@ const styles = StyleSheet.create({
   detailsSectionTitle: { fontSize: 15, fontWeight: "700", color: "#0f172a", marginBottom: 10, marginTop: 8 },
   detailsDescription: { fontSize: 14, color: "#475569", lineHeight: 22, fontWeight: "500" },
   detailsActionBar: { paddingHorizontal: 16, paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#e2e8f0", backgroundColor: "#fff" },
+
+  // Map Section
+  mapHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
+  mapCoords: { fontSize: 12, color: "#64748b", marginBottom: 12, lineHeight: 18 },
+  mapButton: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "#0891b2", borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
+    alignSelf: "flex-start",
+  },
+  mapButtonText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });

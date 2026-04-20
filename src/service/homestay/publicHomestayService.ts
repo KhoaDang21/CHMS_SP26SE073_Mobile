@@ -3,6 +3,11 @@ import { extractPagedItems } from "@/service/api/responseHelpers";
 import { apiConfig } from "@/service/constants/apiConfig";
 import type { Homestay } from "@/types";
 
+export interface OccupiedDateRange {
+  checkIn: string;
+  checkOut: string;
+}
+
 const mapHomestay = (it: Record<string, unknown>): Homestay => ({
   id: String(it.id ?? it.Id ?? it.HomestayId ?? it.homestayId ?? ""),
   name: String(it.name ?? it.Name ?? it.HomestayName ?? it.homestayName ?? ""),
@@ -156,6 +161,41 @@ export const publicHomestayService = {
       );
       const reviews = (res as any)?.data ?? (res as any)?.reviews ?? [];
       return Array.isArray(reviews) ? reviews : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getOccupiedDates(homestayId: string): Promise<OccupiedDateRange[]> {
+    try {
+      const res = await apiClient.get<any>(
+        apiConfig.endpoints.bookings.occupiedDates(homestayId),
+      );
+
+      const rawList: any[] = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.result)
+          ? res.result
+          : Array.isArray(res?.data?.items)
+            ? res.data.items
+            : Array.isArray(res?.data?.Items)
+              ? res.data.Items
+              : Array.isArray(res?.result?.items)
+                ? res.result.items
+                : Array.isArray(res?.result?.Items)
+                  ? res.result.Items
+                  : Array.isArray(res)
+                    ? res
+                    : [];
+
+      return rawList
+        .map((item: any) => ({
+          checkIn: String(item?.checkIn ?? item?.CheckIn ?? ""),
+          checkOut: String(item?.checkOut ?? item?.CheckOut ?? ""),
+        }))
+        .filter(
+          (item): item is OccupiedDateRange => item.checkIn && item.checkOut,
+        );
     } catch {
       return [];
     }

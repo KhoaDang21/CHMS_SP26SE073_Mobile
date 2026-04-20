@@ -119,7 +119,7 @@ export default function ProfileScreen({ onLogout }: { onLogout?: () => void }) {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <Header title="Hồ Sơ" />
+      <Header title="Cài đặt" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Avatar with gradient */}
