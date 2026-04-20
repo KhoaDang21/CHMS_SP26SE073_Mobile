@@ -226,7 +226,7 @@ export default function BicycleGamificationScreen() {
               </View>
             ) : (
               <View style={styles.noRentalCard}>
-                <MaterialCommunityIcons name="bike-outline" size={20} color="#94a3b8" />
+                <MaterialCommunityIcons name="bicycle" size={20} color="#94a3b8" />
                 <Text style={styles.noRentalText}>Bạn chưa thuê xe. Hãy liên hệ nhân viên homestay để thuê xe đạp.</Text>
               </View>
             )}

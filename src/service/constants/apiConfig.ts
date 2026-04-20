@@ -87,6 +87,10 @@ export const apiConfig = {
       recommendations: "/api/ai/recommendations",
       faq: "/api/ai/faq",
       askFaq: "/api/ai/faq/ask",
+      adminAnalytics: "/api/admin/ai/analytics",
+      adminKnowledgeBase: "/api/admin/ai/knowledge-base",
+      adminKnowledgeBaseDetail: (id: string) => `/api/admin/ai/knowledge-base/${id}`,
+      adminSettings: (key: string) => `/api/admin/ai/settings/${key}`,
     },
     districts: {
       list: "/api/districts",
