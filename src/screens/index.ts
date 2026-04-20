@@ -21,4 +21,5 @@ export { default as RegisterScreen } from "@/screens/RegisterScreen";
 export { default as ResetPasswordScreen } from "@/screens/ResetPasswordScreen";
 export { default as ReviewsScreen } from "@/screens/ReviewsScreen";
 export { default as SupportScreen } from "@/screens/SupportScreen";
+export { default as TravelGuidesScreen } from "@/screens/TravelGuidesScreen";
 export { default as WishlistScreen } from "@/screens/WishlistScreen";

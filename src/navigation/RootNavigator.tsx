@@ -22,6 +22,7 @@ import {
   ResetPasswordScreen,
   ReviewsScreen,
   SupportScreen,
+  TravelGuidesScreen,
   WishlistScreen,
 } from "@/screens";
 import AiFloatingButton from "@/components/ai/AiFloatingButton";
@@ -222,11 +223,11 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
         />
         <Tab.Screen
           name="Support"
-          component={SupportScreen}
+          component={TravelGuidesScreen}
           options={{
-            tabBarLabel: "Hỗ trợ",
+            tabBarLabel: "Cẩm nang",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="headphones" color={color} size={size} />
+              <MaterialCommunityIcons name="book-open-variant" color={color} size={size} />
             ),
           }}
         />

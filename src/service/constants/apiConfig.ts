@@ -107,5 +107,13 @@ export const apiConfig = {
       byBooking: (bookingId: string) =>
         `/api/extra-charges/booking/${bookingId}`,
     },
+    culturalGuides: {
+      publicList: "/api/public/cultural-guides",
+      publicDetail: (id: string) => `/api/public/cultural-guides/${id}`,
+      publicByHomestay: (homestayId: string) =>
+        `/api/public/homestays/${homestayId}/cultural-guides`,
+      customerCreate: "/api/customer/cultural-guides",
+      customerMyGuides: "/api/customer/cultural-guides/my-guides",
+    },
   },
 };
