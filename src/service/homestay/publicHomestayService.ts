@@ -52,8 +52,8 @@ const mapHomestay = (it: Record<string, unknown>): Homestay => ({
   reviewCount: Number(
     it.reviewCount ?? it.ReviewCount ?? it.totalReviews ?? it.TotalReviews ?? 0,
   ),
-  seasonalPricings: Array.isArray(it.seasonalPricings ?? it.SeasonalPricings)
-    ? (it.seasonalPricings ?? it.SeasonalPricings).map((sp: any) => ({
+  seasonalPricings: Array.isArray((it as any).seasonalPricings ?? (it as any).SeasonalPricings)
+    ? ((it as any).seasonalPricings ?? (it as any).SeasonalPricings).map((sp: any) => ({
         id: String(sp?.id ?? sp?.Id ?? ""),
         name: String(sp?.name ?? sp?.Name ?? ""),
         startDate: String(sp?.startDate ?? sp?.StartDate ?? ""),
@@ -194,7 +194,7 @@ export const publicHomestayService = {
           checkOut: String(item?.checkOut ?? item?.CheckOut ?? ""),
         }))
         .filter(
-          (item): item is OccupiedDateRange => item.checkIn && item.checkOut,
+          (item): item is OccupiedDateRange => Boolean(item.checkIn && item.checkOut),
         );
     } catch {
       return [];
