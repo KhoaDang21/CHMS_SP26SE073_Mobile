@@ -35,6 +35,8 @@ export const apiConfig = {
       cancellationPolicy: (id: string) =>
         `/api/bookings/${id}/cancellation-policy`,
       specialRequests: (id: string) => `/api/bookings/${id}/special-requests`,
+      occupiedDates: (homestayId: string) =>
+        `/api/bookings/homestays/${homestayId}/occupied-dates`,
     },
     wishlist: {
       list: "/api/wishlist",
@@ -114,6 +116,15 @@ export const apiConfig = {
         `/api/public/homestays/${homestayId}/cultural-guides`,
       customerCreate: "/api/customer/cultural-guides",
       customerMyGuides: "/api/customer/cultural-guides/my-guides",
+    },
+    gamificationBicycles: {
+      checkIn: "/api/gamification-bicycles/check-in",
+      routes: (homestayId: string) =>
+        `/api/gamification-bicycles/routes/${homestayId}`,
+      status: (bookingId: string) =>
+        `/api/gamification-bicycles/status/${bookingId}`,
+      myRental: (bookingId: string) =>
+        `/api/gamification-bicycles/my-rental/${bookingId}`,
     },
   },
 };

@@ -1,5 +1,6 @@
 import {
   AboutScreen,
+  BicycleGamificationScreen,
   BookingDetailScreen,
   BookingEditScreen,
   BookingsScreen,
@@ -202,22 +203,12 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           }}
         />
         <Tab.Screen
-          name="Services"
-          component={LocalExperiencesScreen}
+          name="Bicycles"
+          component={BicycleGamificationScreen}
           options={{
-            tabBarLabel: "Dịch vụ",
+            tabBarLabel: "Xe đạp",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="compass-outline" color={color} size={size} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Wishlist"
-          component={WishlistScreen}
-          options={{
-            tabBarLabel: "Yêu thích",
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="heart-outline" color={color} size={size} />
+              <MaterialCommunityIcons name="bike" color={color} size={size} />
             ),
           }}
         />
@@ -232,11 +223,21 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           }}
         />
         <Tab.Screen
+          name="Wishlist"
+          component={WishlistScreen}
+          options={{
+            tabBarLabel: "Yêu thích",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="heart-outline" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
           name="Profile"
           options={{
-            tabBarLabel: "Hồ sơ",
+            tabBarLabel: "Cài đặt",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="account-outline" color={color} size={size} />
+              <MaterialCommunityIcons name="cog-outline" color={color} size={size} />
             ),
           }}
         >

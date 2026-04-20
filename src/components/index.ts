@@ -6,5 +6,9 @@ export { AlertDialog, LoadingDialog } from "./AlertDialog";
 export { LoadingIndicator } from "./LoadingIndicator";
 export { BottomSheet } from "./BottomSheet";
 export { DatePickerModal } from "./DatePickerModal";
-export { ExperiencePickerModal, type SelectedExperience } from "./ExperiencePickerModal";
+export { InlineCalendar } from "./InlineCalendar";
+export {
+  ExperiencePickerModal,
+  type SelectedExperience,
+} from "./ExperiencePickerModal";
 export { CouponInputModal } from "./CouponInputModal";

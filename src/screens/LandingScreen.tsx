@@ -1,4 +1,4 @@
-import { EmptyState, DatePickerModal, HomestayCard, LoadingSkeletonCard } from "@/components";
+import { EmptyState, HomestayCard, LoadingSkeletonCard } from "@/components";
 import { tokenStorage } from "@/service/auth/tokenStorage";
 import { bookingService } from "@/service/booking/bookingService";
 import { fetchReviewSummary, publicHomestayService } from "@/service/homestay/publicHomestayService";
@@ -258,41 +258,6 @@ export default function LandingScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Date pickers */}
-              <View style={styles.dateRow}>
-                <TouchableOpacity style={[styles.dateBtn, checkInDate && styles.dateBtnActive]} onPress={() => setActivePicker("checkIn")}>
-                  <MaterialCommunityIcons name="calendar-arrow-right" size={16} color={checkInDate ? "#0891b2" : "#94a3b8"} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.dateBtnLabel}>Nhận phòng</Text>
-                    <Text style={[styles.dateBtnValue, checkInDate && styles.dateBtnValueActive]}>
-                      {checkInDate ? formatDate(checkInDate) : "Chọn ngày"}
-                    </Text>
-                  </View>
-                  {checkInDate && (
-                    <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); setCheckInDate(null); setCheckOutDate(null); }}>
-                      <MaterialCommunityIcons name="close-circle" size={16} color="#94a3b8" />
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-                <View style={styles.dateSep}>
-                  <MaterialCommunityIcons name="arrow-right" size={14} color="#94a3b8" />
-                </View>
-                <TouchableOpacity style={[styles.dateBtn, checkOutDate && styles.dateBtnActive]} onPress={() => setActivePicker("checkOut")}>
-                  <MaterialCommunityIcons name="calendar-arrow-left" size={16} color={checkOutDate ? "#0891b2" : "#94a3b8"} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.dateBtnLabel}>Trả phòng</Text>
-                    <Text style={[styles.dateBtnValue, checkOutDate && styles.dateBtnValueActive]}>
-                      {checkOutDate ? formatDate(checkOutDate) : "Chọn ngày"}
-                    </Text>
-                  </View>
-                  {checkOutDate && (
-                    <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); setCheckOutDate(null); }}>
-                      <MaterialCommunityIcons name="close-circle" size={16} color="#94a3b8" />
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-              </View>
-
               {hasFilter && (
                 <TouchableOpacity style={styles.clearBtn} onPress={clearFilters}>
                   <MaterialCommunityIcons name="filter-remove-outline" size={16} color="#ef4444" />
@@ -399,34 +364,6 @@ export default function LandingScreen() {
             </View>
           )
         }
-      />
-
-      {/* Date Picker Modal — chỉ 1 modal tại một thời điểm */}
-      <DatePickerModal
-        visible={activePicker !== null}
-        value={
-          activePicker === "checkOut"
-            ? (checkOutDate || addDays(checkInDate || new Date(), 1))
-            : (checkInDate || new Date())
-        }
-        minimumDate={
-          activePicker === "checkOut"
-            ? addDays(checkInDate || new Date(), 1)
-            : new Date()
-        }
-        title={activePicker === "checkIn" ? "Chọn ngày nhận phòng" : "Chọn ngày trả phòng"}
-        onConfirm={(date) => {
-          if (activePicker === "checkIn") {
-            setCheckInDate(date);
-            if (checkOutDate && checkOutDate <= date) {
-              setCheckOutDate(addDays(date, 1));
-            }
-          } else {
-            setCheckOutDate(date);
-          }
-          setActivePicker(null);
-        }}
-        onCancel={() => setActivePicker(null)}
       />
 
       {/* Province / District Modal */}
@@ -536,17 +473,6 @@ const styles = StyleSheet.create({
   selectDisabled: { opacity: 0.45 },
   selectText: { flex: 1, fontSize: 12, color: "#64748b", fontWeight: "500" },
   selectTextActive: { color: "#0891b2", fontWeight: "700" },
-  dateRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  dateBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center", gap: 8,
-    borderWidth: 1.5, borderColor: "#e2e8f0", borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 11, backgroundColor: "#f8fafc",
-  },
-  dateBtnActive: { borderColor: "#0891b2", backgroundColor: "#e0f2fe" },
-  dateBtnLabel: { fontSize: 10, color: "#94a3b8", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3 },
-  dateBtnValue: { fontSize: 13, color: "#64748b", fontWeight: "700", marginTop: 1 },
-  dateBtnValueActive: { color: "#0891b2" },
-  dateSep: { alignItems: "center" },
   clearBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
     paddingVertical: 8, borderRadius: 8, backgroundColor: "#fef2f2",
