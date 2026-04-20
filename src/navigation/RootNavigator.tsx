@@ -242,8 +242,6 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           {() => <ProfileScreen onLogout={onLogout} />}
         </Tab.Screen>
       </Tab.Navigator>
-      {/* Floating AI chat button — overlay trên tất cả tabs */}
-      <AiFloatingButton />
     </View>
   );
 }
@@ -361,6 +359,8 @@ export default function RootNavigator() {
           </Stack.Group>
         )}
       </Stack.Navigator>
+      {/* Floating AI chat button — overlay trên tất cả screens */}
+      {authenticated && <AiFloatingButton />}
     </NavigationContainer>
   );
 }

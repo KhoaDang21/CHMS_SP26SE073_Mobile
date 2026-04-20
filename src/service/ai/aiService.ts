@@ -8,6 +8,8 @@ export interface ChatMessage {
   sender: string; // "User" | "AI"
   message: string;
   timestamp: string;
+  isRecommendation?: boolean;
+  recommendedHomestays?: any[];
 }
 
 /**
@@ -170,9 +172,17 @@ export const aiService = {
 
     return list.map(
       (r: any): ChatMessage => ({
-        sender: r.sender ?? "",
-        message: r.message ?? "",
-        timestamp: r.timestamp ?? new Date().toISOString(),
+        sender: r.sender ?? r.Sender ?? "",
+        message: r.message ?? r.Message ?? "",
+        timestamp: r.timestamp ?? r.Timestamp ?? new Date().toISOString(),
+        isRecommendation: Boolean(
+          r.isRecommendation ?? r.IsRecommendation ?? false,
+        ),
+        recommendedHomestays: Array.isArray(
+          r.recommendedHomestays ?? r.RecommendedHomestays,
+        )
+          ? (r.recommendedHomestays ?? r.RecommendedHomestays)
+          : undefined,
       }),
     );
   },

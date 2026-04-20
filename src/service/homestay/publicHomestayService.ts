@@ -4,33 +4,49 @@ import { apiConfig } from "@/service/constants/apiConfig";
 import type { Homestay } from "@/types";
 
 const mapHomestay = (it: Record<string, unknown>): Homestay => ({
-  id: String(it.id ?? it.Id ?? ""),
-  name: String(it.name ?? it.Name ?? ""),
+  id: String(it.id ?? it.Id ?? it.HomestayId ?? it.homestayId ?? ""),
+  name: String(it.name ?? it.Name ?? it.HomestayName ?? it.homestayName ?? ""),
   description: String(it.description ?? it.Description ?? ""),
   address: String(it.address ?? it.Address ?? ""),
   districtName: String(it.districtName ?? it.DistrictName ?? ""),
   provinceName: String(it.provinceName ?? it.ProvinceName ?? ""),
-  pricePerNight: Number(it.pricePerNight ?? it.PricePerNight ?? it.price ?? 0),
+  city: String(it.city ?? it.City ?? ""),
+  country: String(it.country ?? it.Country ?? ""),
+  latitude: Number(it.latitude ?? it.Latitude ?? 0) || undefined,
+  longitude: Number(it.longitude ?? it.Longitude ?? 0) || undefined,
+  pricePerNight: Number(
+    it.pricePerNight ?? it.PricePerNight ?? it.price ?? it.Price ?? 0,
+  ),
   maxGuests: Number(it.maxGuests ?? it.MaxGuests ?? 1),
   bedrooms: Number(it.bedrooms ?? it.Bedrooms ?? 0),
   bathrooms: Number(it.bathrooms ?? it.Bathrooms ?? 0),
-  images: (it.images ?? it.ImageUrls ?? it.imageUrls ?? []) as string[],
+  area: Number(it.area ?? it.Area ?? 0) || undefined,
+  images: (it.images ??
+    it.Images ??
+    it.ImageUrls ??
+    it.imageUrls ??
+    it.ImageUrl ??
+    []) as string[],
   amenities: (it.amenities ??
+    it.Amenities ??
     it.AmenityNames ??
     it.amenityNames ??
     []) as string[],
+  amenityIds: (it.amenityIds ?? it.AmenityIds ?? []) as string[],
   ownerName: String(it.ownerName ?? it.OwnerName ?? ""),
+  ownerId: String(it.ownerId ?? it.OwnerId ?? ""),
+  status: String(it.status ?? it.Status ?? "ACTIVE"),
   depositPercentage: Number(it.depositPercentage ?? it.DepositPercentage ?? 20),
-  averageRating:
-    it.averageRating != null || it.AverageRating != null
-      ? Number(it.averageRating ?? it.AverageRating)
-      : it.rating != null || it.Rating != null
-        ? Number(it.rating ?? it.Rating)
-        : undefined,
-  reviewCount:
-    it.reviewCount != null || it.ReviewCount != null
-      ? Number(it.reviewCount ?? it.ReviewCount)
-      : undefined,
+  cancellationPolicy: String(
+    it.cancellationPolicy ?? it.CancellationPolicy ?? "",
+  ),
+  houseRules: String(it.houseRules ?? it.HouseRules ?? ""),
+  averageRating: Number(
+    it.averageRating ?? it.AverageRating ?? it.rating ?? it.Rating ?? 0,
+  ),
+  reviewCount: Number(
+    it.reviewCount ?? it.ReviewCount ?? it.totalReviews ?? it.TotalReviews ?? 0,
+  ),
   seasonalPricings: Array.isArray(it.seasonalPricings ?? it.SeasonalPricings)
     ? (it.seasonalPricings ?? it.SeasonalPricings).map((sp: any) => ({
         id: String(sp?.id ?? sp?.Id ?? ""),
@@ -42,6 +58,8 @@ const mapHomestay = (it: Record<string, unknown>): Homestay => ({
         status: String(sp?.status ?? sp?.Status ?? "ACTIVE"),
       }))
     : undefined,
+  createdAt: String(it.createdAt ?? it.CreatedAt ?? ""),
+  updatedAt: String(it.updatedAt ?? it.UpdatedAt ?? ""),
 });
 
 export interface HomestayFilters {

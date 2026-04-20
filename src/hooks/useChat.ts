@@ -59,7 +59,9 @@ const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
             message: action.payload.replyMessage || "Xin lỗi, tôi chưa hiểu.",
             timestamp: new Date().toISOString(),
             isRecommendation: action.payload.isRecommendation || false,
-            recommendedHomestays: Array.isArray(action.payload.recommendedHomestays)
+            recommendedHomestays: Array.isArray(
+              action.payload.recommendedHomestays,
+            )
               ? action.payload.recommendedHomestays
               : undefined,
           },
@@ -92,8 +94,8 @@ export const useChat = () => {
       const history = await aiService.getChatHistory();
       const extended: ExtendedChatMessage[] = history.map((msg) => ({
         ...msg,
-        recommendedHomestays: undefined,
-        isRecommendation: false,
+        recommendedHomestays: msg.recommendedHomestays,
+        isRecommendation: msg.isRecommendation ?? false,
       }));
       dispatch({ type: "SET_MESSAGES", payload: extended });
     } catch {
@@ -150,7 +152,8 @@ export const useChat = () => {
       await aiService.deleteChatHistory();
       dispatch({ type: "CLEAR_MESSAGES" });
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Failed to clear history";
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to clear history";
       dispatch({ type: "SET_ERROR", payload: errorMsg });
     }
   }, []);

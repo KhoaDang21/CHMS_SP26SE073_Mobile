@@ -79,6 +79,12 @@ export default function ChatScreen() {
         }
     }, [messages]);
 
+    const handleInputFocus = useCallback(() => {
+        setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+        }, 300);
+    }, []);
+
     const handleSendMessage = useCallback(async () => {
         if (!inputText.trim() || sending) return;
         const msgToSend = inputText.trim();
@@ -106,6 +112,14 @@ export default function ChatScreen() {
             showToast("Không thể gửi yêu cầu", "error");
         }
     }, [sendMessage]);
+
+    const handleNavigateToHomestay = useCallback((homestayId: string) => {
+        // Navigate to HomestayDetail FIRST (push behind Chat modal)
+        // Then close Chat modal
+        // Both actions queue synchronously, ensuring proper order
+        navigation.navigate('HomestayDetail', { id: homestayId });
+        navigation.goBack();
+    }, [navigation]);
 
     return (
         <SafeAreaView style={styles.container} edges={["top"]}>
@@ -137,94 +151,96 @@ export default function ChatScreen() {
                 <LoadingIndicator />
             ) : (
                 <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={(item, idx) => item.timestamp + idx}
-                renderItem={({ item }) => (
-                    <View
-                        style={[
-                            styles.messageBubble,
-                            item.sender === "User" ? styles.userBubble : styles.aiBubble,
-                        ]}
-                    >
-                        <View style={styles.bubbleWrapper}>
-                            {item.sender === "AI" && (
+                    ref={flatListRef}
+                    data={messages}
+                    keyExtractor={(item, idx) => item.timestamp + idx}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                        <View
+                            style={[
+                                styles.messageBubble,
+                                item.sender === "User" ? styles.userBubble : styles.aiBubble,
+                            ]}
+                        >
+                            <View style={styles.bubbleWrapper}>
+                                {item.sender === "AI" && (
+                                    <View style={styles.aiAvatar}>
+                                        <MaterialCommunityIcons name="robot" size={16} color="#fff" />
+                                    </View>
+                                )}
+                                <View
+                                    style={[
+                                        styles.bubble,
+                                        item.sender === "User" ? styles.userMessage : styles.aiMessage,
+                                    ]}
+                                >
+                                    {item.sender === "AI" ? (
+                                        <AiBubbleContent
+                                            message={item.message}
+                                            recommendedHomestays={item.recommendedHomestays}
+                                            isRecommendation={item.isRecommendation}
+                                            onNavigateToHomestay={handleNavigateToHomestay}
+                                        />
+                                    ) : (
+                                        <Text style={[styles.messageText, styles.userMessageText]}>
+                                            {item.message}
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                            <Text style={[styles.timestamp, item.sender === "User" && styles.timestampRight]}>
+                                {new Date(item.timestamp).toLocaleTimeString("vi-VN", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}
+                            </Text>
+                        </View>
+                    )}
+                    ListHeaderComponent={
+                        messages.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <View style={styles.emptyIconContainer}>
+                                    <MaterialCommunityIcons
+                                        name="robot-happy-outline"
+                                        size={48}
+                                        color="#0891b2"
+                                    />
+                                </View>
+                                <Text style={styles.emptyTitle}>Xin chào! Tôi có thể giúp gì?</Text>
+                                <Text style={styles.emptyDesc}>
+                                    Tôi là trợ lý AI thông minh của CHMS. Hãy hỏi tôi bất cứ điều gì về:
+                                </Text>
+                                <View style={styles.featureGrid}>
+                                    {[
+                                        { icon: "home-search", label: "Tìm homestay" },
+                                        { icon: "calendar-check", label: "Đặt phòng" },
+                                        { icon: "tag-outline", label: "Giá ưu đãi" },
+                                        { icon: "map-marker-radius", label: "Gợi ý địa điểm" },
+                                    ].map((feat, i) => (
+                                        <View key={i} style={styles.featureChip}>
+                                            <MaterialCommunityIcons name={feat.icon as any} size={16} color="#0891b2" />
+                                            <Text style={styles.featureChipText}>{feat.label}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        ) : null
+                    }
+                    ListFooterComponent={
+                        sending ? (
+                            <View style={styles.typingContainer}>
                                 <View style={styles.aiAvatar}>
                                     <MaterialCommunityIcons name="robot" size={16} color="#fff" />
                                 </View>
-                            )}
-                            <View
-                                style={[
-                                    styles.bubble,
-                                    item.sender === "User" ? styles.userMessage : styles.aiMessage,
-                                ]}
-                            >
-                                {item.sender === "AI" ? (
-                                    <AiBubbleContent
-                                        message={item.message}
-                                        recommendedHomestays={item.recommendedHomestays}
-                                        isRecommendation={item.isRecommendation}
-                                    />
-                                ) : (
-                                    <Text style={[styles.messageText, styles.userMessageText]}>
-                                        {item.message}
-                                    </Text>
-                                )}
+                                <View style={styles.typingBubble}>
+                                    <TypingDots />
+                                </View>
                             </View>
-                        </View>
-                        <Text style={[styles.timestamp, item.sender === "User" && styles.timestampRight]}>
-                            {new Date(item.timestamp).toLocaleTimeString("vi-VN", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
-                        </Text>
-                    </View>
-                )}
-                ListHeaderComponent={
-                    messages.length === 0 ? (
-                        <View style={styles.emptyState}>
-                            <View style={styles.emptyIconContainer}>
-                                <MaterialCommunityIcons
-                                    name="robot-happy-outline"
-                                    size={48}
-                                    color="#0891b2"
-                                />
-                            </View>
-                            <Text style={styles.emptyTitle}>Xin chào! Tôi có thể giúp gì?</Text>
-                            <Text style={styles.emptyDesc}>
-                                Tôi là trợ lý AI thông minh của CHMS. Hãy hỏi tôi bất cứ điều gì về:
-                            </Text>
-                            <View style={styles.featureGrid}>
-                                {[
-                                    { icon: "home-search", label: "Tìm homestay" },
-                                    { icon: "calendar-check", label: "Đặt phòng" },
-                                    { icon: "tag-outline", label: "Giá ưu đãi" },
-                                    { icon: "map-marker-radius", label: "Gợi ý địa điểm" },
-                                ].map((feat, i) => (
-                                    <View key={i} style={styles.featureChip}>
-                                        <MaterialCommunityIcons name={feat.icon as any} size={16} color="#0891b2" />
-                                        <Text style={styles.featureChipText}>{feat.label}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </View>
-                    ) : null
-                }
-                ListFooterComponent={
-                    sending ? (
-                        <View style={styles.typingContainer}>
-                            <View style={styles.aiAvatar}>
-                                <MaterialCommunityIcons name="robot" size={16} color="#fff" />
-                            </View>
-                            <View style={styles.typingBubble}>
-                                <TypingDots />
-                            </View>
-                        </View>
-                    ) : null
-                }
-                contentContainerStyle={styles.messagesList}
-                showsVerticalScrollIndicator={false}
-            />
+                        ) : null
+                    }
+                    contentContainerStyle={styles.messagesList}
+                    showsVerticalScrollIndicator={false}
+                />
             )}
 
             {/* Quick Action — chỉ hiện khi chưa có tin nhắn */}
@@ -242,7 +258,11 @@ export default function ChatScreen() {
             )}
 
             {/* Input Area */}
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "padding"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+                enabled
+            >
                 <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                     <View style={styles.inputWrapper}>
                         <TextInput
@@ -255,6 +275,7 @@ export default function ChatScreen() {
                             editable={!sending}
                             onSubmitEditing={handleSendMessage}
                             blurOnSubmit={false}
+                            onFocus={handleInputFocus}
                         />
                         <TouchableOpacity
                             style={[
@@ -395,6 +416,7 @@ const styles = StyleSheet.create({
     messageBubble: {
         marginBottom: 16,
         maxWidth: "85%",
+        maxHeight: "80%",
     },
     userBubble: {
         alignSelf: "flex-end",
@@ -510,6 +532,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         borderTopWidth: 1,
         borderTopColor: "#f1f5f9",
+        zIndex: 10,
     },
     inputWrapper: {
         flexDirection: "row",
@@ -517,15 +540,15 @@ const styles = StyleSheet.create({
     },
     msgInput: {
         flex: 1,
-        backgroundColor: "#f8fafc",
-        borderRadius: 20,
+        backgroundColor: "#fff",
+        borderRadius: 16,
         paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingVertical: 14,
         fontSize: 15,
         color: "#1e293b",
         maxHeight: 120,
-        borderWidth: 1,
-        borderColor: "#e2e8f0",
+        borderWidth: 1.5,
+        borderColor: "#cbd5e1",
         marginRight: 10,
     },
     sendButton: {

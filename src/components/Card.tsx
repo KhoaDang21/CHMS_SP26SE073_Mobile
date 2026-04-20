@@ -215,9 +215,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 3,
+        flex: 1,
     },
     homestayCard: {
         marginBottom: 0,
+        flex: 1,
     },
     homestayCardCompact: {
         flex: 1,
@@ -227,9 +229,11 @@ const styles = StyleSheet.create({
         width: "100%",
         height: 160,
         backgroundColor: "#f1f5f9",
+        flexShrink: 0,
     },
     imageContainerCompact: {
         height: 120,
+        flexShrink: 0,
     },
     image: {
         width: "100%",
@@ -255,11 +259,15 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 12,
+        flex: 1,
+        justifyContent: "space-between",
+        minHeight: 200,
     },
     contentCompact: {
         padding: 8,
-        minHeight: 90,
+        minHeight: 160,
         justifyContent: "space-between",
+        flex: 1,
     },
     name: {
         fontSize: 14,
@@ -267,11 +275,13 @@ const styles = StyleSheet.create({
         color: "#1e293b",
         marginBottom: 4,
         lineHeight: 19,
+        maxHeight: 38,
     },
     nameCompact: {
         fontSize: 12,
         lineHeight: 16,
         marginBottom: 3,
+        maxHeight: 34,
     },
     locationBadge: {
         position: "absolute",
@@ -302,70 +312,84 @@ const styles = StyleSheet.create({
     ratingRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 6,
+        marginBottom: 3,
         flexWrap: "wrap",
+        minHeight: 20,
     },
     ratingScore: {
         fontSize: 12,
         fontWeight: "700",
         color: "#0891b2",
         marginLeft: 2,
+        marginBottom: 0,
     },
     ratingScoreCompact: {
         fontSize: 11,
+        marginBottom: 0,
     },
     reviewCount: {
         fontSize: 11,
         color: "#64748b",
+        minHeight: 16,
     },
     reviewCountCompact: {
         fontSize: 10,
         color: "#94a3b8",
-        marginBottom: 4,
+        marginBottom: 2,
+        minHeight: 14,
     },
     noRating: {
         fontSize: 11,
         color: "#94a3b8",
-        marginBottom: 6,
+        marginBottom: 3,
+        minHeight: 18,
     },
     noRatingCompact: {
         fontSize: 10,
-        marginBottom: 4,
+        marginBottom: 2,
+        minHeight: 16,
     },
     footer: {
         flexDirection: "row",
         alignItems: "flex-end",
         justifyContent: "space-between",
-        marginTop: 2,
+        marginTop: 0,
     },
     priceRow: {
         flexDirection: "row",
         alignItems: "baseline",
+        minHeight: 18,
     },
     price: {
         fontSize: 14,
         fontWeight: "700",
         color: "#0891b2",
+        marginBottom: 0,
     },
     priceCompact: {
         fontSize: 12,
+        marginBottom: 0,
     },
     currency: {
         fontSize: 11,
         color: "#64748b",
         marginLeft: 2,
+        marginBottom: 0,
     },
     currencyCompact: {
         fontSize: 10,
+        marginBottom: 0,
     },
     originalPrice: {
         fontSize: 10,
         color: "#64748b",
-        marginTop: 4,
+        marginTop: 2,
+        minHeight: 14,
     },
     originalPriceCompact: {
         fontSize: 9,
-        marginTop: 3,
+        marginTop: 2,
+        minHeight: 13,
     },
     strikethrough: {
         textDecorationLine: "line-through",
@@ -377,18 +401,20 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         paddingHorizontal: 8,
         paddingVertical: 4,
-        marginTop: 5,
+        marginTop: 0,
         borderWidth: 1,
         borderColor: "#a7f3d0",
+        minHeight: 24,
     },
     seasonalActiveCompact: {
         paddingHorizontal: 6,
         paddingVertical: 3,
-        marginTop: 4,
+        marginTop: 0,
     },
     seasonalActiveIcon: {
         fontSize: 10,
         marginRight: 4,
+        marginBottom: 0,
     },
     seasonalActiveText: {
         fontSize: 10,
@@ -396,10 +422,12 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         flex: 1,
         lineHeight: 14,
+        marginBottom: 0,
     },
     seasonalActiveTextCompact: {
         fontSize: 9,
         lineHeight: 12,
+        marginBottom: 0,
     },
     seasonalWarning: {
         flexDirection: "row",
@@ -408,18 +436,20 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         paddingHorizontal: 8,
         paddingVertical: 5,
-        marginTop: 6,
+        marginTop: 0,
         borderWidth: 1,
         borderColor: "#fde68a",
+        minHeight: 28,
     },
     seasonalWarningCompact: {
         paddingHorizontal: 6,
         paddingVertical: 4,
-        marginTop: 4,
+        marginTop: 0,
     },
     seasonalWarningIcon: {
         fontSize: 11,
         marginRight: 4,
+        marginBottom: 0,
     },
     seasonalWarningText: {
         fontSize: 10,
@@ -427,10 +457,12 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         flex: 1,
         lineHeight: 14,
+        marginBottom: 0,
     },
     seasonalWarningTextCompact: {
         fontSize: 9,
         lineHeight: 12,
+        marginBottom: 0,
     },
     skeleton: {
         backgroundColor: "#e2e8f0",
