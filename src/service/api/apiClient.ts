@@ -100,8 +100,13 @@ async function request<T>(
 
     if (!response.ok) {
       // Extract error message from various BE response shapes:
-      // { message }, { Message }, { errors: { field: [...] } }, { title } (ASP.NET validation)
-      let errorMessage: string = data?.message || data?.Message || "";
+      // { message }, { Message }, { data: { message } }, { errors: { field: [...] } }, { title }
+      let errorMessage: string =
+        data?.message ||
+        data?.Message ||
+        data?.data?.message ||
+        data?.data?.Message ||
+        "";
 
       if (!errorMessage && data?.errors) {
         // ASP.NET ModelState: { errors: { FieldName: ["msg1"] } }
