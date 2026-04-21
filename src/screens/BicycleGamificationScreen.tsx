@@ -138,6 +138,10 @@ export default function BicycleGamificationScreen() {
       showToast("Vui lòng chọn chuyến đi trước", "warning");
       return;
     }
+    if (!rental) {
+      showToast("Bạn chưa được bàn giao xe cho booking này", "warning");
+      return;
+    }
     setCheckingInGemId(gemId);
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
@@ -176,7 +180,7 @@ export default function BicycleGamificationScreen() {
     } finally {
       setCheckingInGemId(null);
     }
-  }, [selectedBookingId, bookings, loadGameData]);
+  }, [selectedBookingId, bookings, loadGameData, rental]);
 
   // ─── 7. Mở Google Maps cho lộ trình ─────────────────────────────────────
   const handleOpenMap = useCallback((routeItem: BicycleRoute) => {
@@ -407,7 +411,7 @@ export default function BicycleGamificationScreen() {
                                             isCheckingThis && styles.checkInButtonLoading,
                                           ]}
                                           onPress={() => handleCheckIn(gem.id)}
-                                          disabled={checkingInGemId !== null}
+                                          disabled={checkingInGemId !== null || !rental}
                                           activeOpacity={0.85}
                                         >
                                           <MaterialCommunityIcons
@@ -416,7 +420,7 @@ export default function BicycleGamificationScreen() {
                                             color="#fff"
                                           />
                                           <Text style={styles.checkInButtonText}>
-                                            {isCheckingThis ? "Đang xử lý..." : "Check-in tại đây"}
+                                            {isCheckingThis ? "Đang xử lý..." : rental ? "Check-in tại đây" : "Chưa có xe"}
                                           </Text>
                                         </TouchableOpacity>
                                       )}
