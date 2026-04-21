@@ -8,7 +8,7 @@ export const LoginSchema = z.object({
   password: z
     .string()
     .min(1, "Mật khẩu không được trống")
-    .min(8, "Mật khẩu phải có ít nhất 8 ký tự"),
+    .min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
 });
 
 export const RegisterSchema = z.object({
