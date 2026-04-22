@@ -2,6 +2,7 @@ import { AlertDialog, Button, Divider, Header, LoadingIndicator } from "@/compon
 import { bookingService } from "@/service/booking/bookingService";
 import { extraChargeService } from "@/service/extraCharge/extraChargeService";
 import { publicHomestayService } from "@/service/homestay/publicHomestayService";
+import { refundService, type PendingRefund } from "@/service/refund/refundService";
 import { reviewService } from "@/service/review/reviewService";
 import type { Booking, ExtraCharge } from "@/types";
 import { showToast } from "@/utils/toast";
@@ -96,6 +97,7 @@ export default function BookingDetailScreen() {
   const [homestay, setHomestay] = useState<any>(null);
   const [policy, setPolicy] = useState<any>(null);
   const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
+  const [refund, setRefund] = useState<PendingRefund | null>(null);
   const [hasReview, setHasReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cancelDialog, setCancelDialog] = useState(false);
@@ -121,6 +123,14 @@ export default function BookingDetailScreen() {
         // Load homestay detail
         if (detail.homestayId) {
           publicHomestayService.getById(detail.homestayId).then(setHomestay).catch(() => { });
+        }
+        // Load refunds (if booking is cancelled)
+        if (detail.status === "CANCELLED") {
+          const refunds = await refundService.getMyRefunds().catch(() => []);
+          const myRefund = refunds.find((r) => r.bookingId === detail.id);
+          if (myRefund) {
+            setRefund(myRefund);
+          }
         }
         // Check review
         reviewService.getMyReviews().then((reviews) => {
@@ -480,6 +490,50 @@ export default function BookingDetailScreen() {
           </>
         )}
 
+        {/* Refund status */}
+        {booking.status === "CANCELLED" && refund && (
+          <>
+            <Divider />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Thông tin hoàn tiền</Text>
+              <View style={[styles.refundBox, refund.refundStatus === "COMPLETED" ? styles.refundBoxCompleted : styles.refundBoxPending]}>
+                <View style={styles.refundHeader}>
+                  <MaterialCommunityIcons
+                    name={refund.refundStatus === "COMPLETED" ? "check-circle" : "clock-outline"}
+                    size={18}
+                    color={refund.refundStatus === "COMPLETED" ? "#059669" : "#d97706"}
+                  />
+                  <Text style={[styles.refundStatus, refund.refundStatus === "COMPLETED" ? { color: "#059669" } : { color: "#d97706" }]}>
+                    {refund.refundStatus === "COMPLETED" ? "Đã hoàn tiền" : "Chờ xử lý"}
+                  </Text>
+                </View>
+                <View style={styles.refundAmount}>
+                  <Text style={styles.refundLabel}>Số tiền hoàn</Text>
+                  <Text style={styles.refundValue}>₫{refund.refundAmount.toLocaleString("vi-VN")}</Text>
+                </View>
+                {refund.bankName && (
+                  <View style={styles.refundDetail}>
+                    <Text style={styles.refundDetailLabel}>Ngân hàng</Text>
+                    <Text style={styles.refundDetailValue}>{refund.bankName}</Text>
+                  </View>
+                )}
+                {refund.accountHolderName && (
+                  <View style={styles.refundDetail}>
+                    <Text style={styles.refundDetailLabel}>Chủ tài khoản</Text>
+                    <Text style={styles.refundDetailValue}>{refund.accountHolderName}</Text>
+                  </View>
+                )}
+                {refund.refundedAt && (
+                  <View style={styles.refundDetail}>
+                    <Text style={styles.refundDetailLabel}>Ngày hoàn</Text>
+                    <Text style={styles.refundDetailValue}>{new Date(refund.refundedAt).toLocaleDateString("vi-VN")}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </>
+        )}
+
         {/* Actions */}
         <View style={styles.section}>
           {/* Payment button */}
@@ -658,6 +712,18 @@ const styles = StyleSheet.create({
 
   policyBox: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#fffbeb", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#fde68a" },
   policyText: { flex: 1, fontSize: 13, color: "#92400e", lineHeight: 20 },
+
+  refundBox: { borderRadius: 12, padding: 14, borderWidth: 1 },
+  refundBoxPending: { backgroundColor: "#fffbeb", borderColor: "#fde68a" },
+  refundBoxCompleted: { backgroundColor: "#d1fae5", borderColor: "#a7f3d0" },
+  refundHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
+  refundStatus: { fontSize: 14, fontWeight: "700" },
+  refundAmount: { marginBottom: 10 },
+  refundLabel: { fontSize: 12, color: "#64748b", marginBottom: 4 },
+  refundValue: { fontSize: 18, fontWeight: "900", color: "#0f172a" },
+  refundDetail: { marginBottom: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "rgba(255,255,255,0.5)", borderRadius: 8 },
+  refundDetailLabel: { fontSize: 11, color: "#64748b", fontWeight: "500", marginBottom: 2 },
+  refundDetailValue: { fontSize: 13, fontWeight: "600", color: "#0f172a" },
 
   payBtn: { marginBottom: 12, borderRadius: 14, overflow: "hidden" },
   payBtnGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 16 },

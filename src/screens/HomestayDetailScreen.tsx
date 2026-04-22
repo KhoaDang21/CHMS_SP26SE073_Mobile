@@ -20,6 +20,7 @@ import { publicHomestayService } from "@/service/homestay/publicHomestayService"
 import { wishlistService } from "@/service/wishlist/wishlistService";
 import type { Experience, Homestay } from "@/types";
 import { showToast } from "@/utils/toast";
+import { formatLocalDate } from "@/utils";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -291,8 +292,8 @@ export default function HomestayDetailScreen() {
       try {
         const result = await bookingService.calculate({
           homestayId: effectiveHomestayId,
-          checkIn: checkInDate.toISOString().split("T")[0],
-          checkOut: checkOutDate.toISOString().split("T")[0],
+          checkIn: formatLocalDate(checkInDate),
+          checkOut: formatLocalDate(checkOutDate),
           guestsCount: guestCount,
         });
         if (!cancelled) setCalcResult(result);
@@ -474,6 +475,11 @@ export default function HomestayDetailScreen() {
       : 0;
   const manualCouponDiscount = selectedPromotion ? 0 : couponDiscount;
 
+  // Tính tiền cọc phải thanh toán (không phải tổng tiền)
+  const finalTotalAfterDiscount = Math.max(0, totalPrice - selectedPromotionDiscount - manualCouponDiscount);
+  const depositPct = (item?.depositPercentage ?? 20) / 100;
+  const depositAmount = Math.round(finalTotalAfterDiscount * depositPct);
+
   const avgRating =
     reviews.length > 0
       ? Math.round(
@@ -567,8 +573,8 @@ export default function HomestayDetailScreen() {
 
       const res = await bookingService.createBooking({
         homestayId: item.id,
-        checkIn: checkInDate!.toISOString().split("T")[0],
-        checkOut: checkOutDate!.toISOString().split("T")[0],
+        checkIn: formatLocalDate(checkInDate!),
+        checkOut: formatLocalDate(checkOutDate!),
         guestsCount: guestCount,
         contactPhone: phone,
         specialRequests: specialRequests || undefined,
@@ -590,8 +596,8 @@ export default function HomestayDetailScreen() {
           id: createdId,
           homestayId: item!.id,
           homestayName: item!.name,
-          checkIn: checkInDate!.toISOString().split('T')[0],
-          checkOut: checkOutDate!.toISOString().split('T')[0],
+          checkIn: formatLocalDate(checkInDate!),
+          checkOut: formatLocalDate(checkOutDate!),
           totalNights,
           guestsCount: guestCount,
           pricePerNight: item!.pricePerNight,
@@ -1363,7 +1369,7 @@ export default function HomestayDetailScreen() {
                 </View>
 
                 <Button
-                  title={booking ? "Đang đặt phòng..." : `Đặt phòng · ₫${(totalPrice - selectedPromotionDiscount - manualCouponDiscount > 0 ? totalPrice - selectedPromotionDiscount - manualCouponDiscount : totalPrice).toLocaleString("vi-VN")}`}
+                  title={booking ? "Đang đặt phòng..." : `Đặt phòng · Cọc ₫${depositAmount.toLocaleString("vi-VN")}`}
                   onPress={handleBooking}
                   loading={booking}
                   disabled={booking || nights <= 0 || (checkInDate != null && checkOutDate != null && hasDateConflict(checkInDate, checkOutDate)) || !phone.trim()}

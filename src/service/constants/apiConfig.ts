@@ -89,7 +89,8 @@ export const apiConfig = {
       askFaq: "/api/ai/faq/ask",
       adminAnalytics: "/api/admin/ai/analytics",
       adminKnowledgeBase: "/api/admin/ai/knowledge-base",
-      adminKnowledgeBaseDetail: (id: string) => `/api/admin/ai/knowledge-base/${id}`,
+      adminKnowledgeBaseDetail: (id: string) =>
+        `/api/admin/ai/knowledge-base/${id}`,
       adminSettings: (key: string) => `/api/admin/ai/settings/${key}`,
     },
     districts: {
@@ -129,6 +130,11 @@ export const apiConfig = {
         `/api/gamification-bicycles/status/${bookingId}`,
       myRental: (bookingId: string) =>
         `/api/gamification-bicycles/my-rental/${bookingId}`,
+    },
+    refunds: {
+      myRefunds: "/api/bookings/my-refunds",
+      detail: (id: string) =>
+        `/api/admin/cancellation-policies/refund-detail/${id}`,
     },
   },
 };

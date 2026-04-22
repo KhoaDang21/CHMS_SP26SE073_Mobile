@@ -7,6 +7,7 @@ import { provinceService, type Province } from "@/service/location/provinceServi
 import type { Booking, Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
+import { formatLocalDate } from "@/utils";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -51,8 +52,8 @@ export default function LandingScreen() {
   const [searchText, setSearchText] = useState("");
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
 
-  const checkInStr = checkInDate ? checkInDate.toISOString().split("T")[0] : null;
-  const checkOutStr = checkOutDate ? checkOutDate.toISOString().split("T")[0] : null;
+  const checkInStr = checkInDate ? formatLocalDate(checkInDate) : null;
+  const checkOutStr = checkOutDate ? formatLocalDate(checkOutDate) : null;
 
   const handleLoginPress = useCallback(() => navigation.navigate("Login"), [navigation]);
   const handleRegisterPress = useCallback(() => navigation.navigate("Register"), [navigation]);

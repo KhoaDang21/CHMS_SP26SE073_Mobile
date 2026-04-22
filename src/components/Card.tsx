@@ -99,60 +99,72 @@ export const HomestayCard: React.FC<HomestayCardProps> = ({
                 ) : null}
             </View>
             <View style={[styles.content, compact && styles.contentCompact]}>
+                {/* Name — fixed 2-line height */}
                 <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={2}>{name}</Text>
-                {hasRating ? (
-                    <View style={styles.ratingRow}>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <MaterialCommunityIcons
-                                key={i}
-                                name={i < starCount ? "star" : "star-outline"}
-                                size={compact ? 11 : 14}
-                                color={i < starCount ? "#f59e0b" : "#d1d5db"}
-                            />
-                        ))}
-                        <Text style={[styles.ratingScore, compact && styles.ratingScoreCompact]}>{rating!.toFixed(1)}</Text>
-                        {!compact && reviewCount != null && reviewCount > 0 && (
-                            <Text style={styles.reviewCount}>· {reviewCount} đánh giá</Text>
-                        )}
-                    </View>
-                ) : (
-                    <Text style={[styles.noRating, compact && styles.noRatingCompact]}>Chưa có đánh giá</Text>
-                )}
-                {compact && reviewCount != null && reviewCount > 0 && (
-                    <Text style={styles.reviewCountCompact}>{reviewCount} đánh giá</Text>
-                )}
 
-                {/* Price section */}
-                <View style={styles.footer}>
-                    <View style={styles.priceRow}>
-                        <Text style={[styles.price, compact && styles.priceCompact]}>
-                            ₫{displayPrice.toLocaleString("vi-VN")}
+                {/* Rating row — always same height regardless of reviewCount */}
+                <View style={styles.ratingRow}>
+                    {hasRating ? (
+                        <>
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <MaterialCommunityIcons
+                                    key={i}
+                                    name={i < starCount ? "star" : "star-outline"}
+                                    size={compact ? 11 : 14}
+                                    color={i < starCount ? "#f59e0b" : "#d1d5db"}
+                                />
+                            ))}
+                            <Text style={[styles.ratingScore, compact && styles.ratingScoreCompact]}>{rating!.toFixed(1)}</Text>
+                            {reviewCount != null && reviewCount > 0 && (
+                                <Text style={[styles.reviewCount, compact && styles.reviewCountCompact]} numberOfLines={1}>
+                                    · {reviewCount} đánh giá
+                                </Text>
+                            )}
+                        </>
+                    ) : (
+                        <Text style={[styles.noRating, compact && styles.noRatingCompact]} numberOfLines={1}>
+                            Chưa có đánh giá
                         </Text>
-                        <Text style={[styles.currency, compact && styles.currencyCompact]}>/đêm</Text>
-                    </View>
+                    )}
                 </View>
 
-                {/* Seasonal pricing info */}
-                {hasSeasonalPrice ? (
-                    <>
-                        <Text style={[styles.originalPrice, compact && styles.originalPriceCompact]}>
+                {/* Price row — fixed height */}
+                <View style={styles.priceRow}>
+                    <Text style={[styles.price, compact && styles.priceCompact]}>
+                        ₫{displayPrice.toLocaleString("vi-VN")}
+                    </Text>
+                    <Text style={[styles.currency, compact && styles.currencyCompact]}>/đêm</Text>
+                </View>
+
+                {/* Original price placeholder — always same height to keep alignment */}
+                <View style={styles.originalPriceLine}>
+                    {hasSeasonalPrice ? (
+                        <Text style={[styles.originalPrice, compact && styles.originalPriceCompact]} numberOfLines={1}>
                             Giá niêm yết: <Text style={styles.strikethrough}>{price.toLocaleString("vi-VN")}đ</Text>
                         </Text>
+                    ) : (
+                        <View style={styles.originalPricePlaceholder} />
+                    )}
+                </View>
+
+                {/* Seasonal badge — always same height */}
+                <View style={styles.seasonalBadgeContainer}>
+                    {hasSeasonalPrice ? (
                         <View style={[styles.seasonalActive, compact && styles.seasonalActiveCompact]}>
                             <Text style={styles.seasonalActiveIcon}>🌿</Text>
-                            <Text style={[styles.seasonalActiveText, compact && styles.seasonalActiveTextCompact]}>
+                            <Text style={[styles.seasonalActiveText, compact && styles.seasonalActiveTextCompact]} numberOfLines={1}>
                                 {activeSeasonal?.name ? `Giá theo mùa: ${activeSeasonal.name}` : "Đang áp dụng giá theo mùa"}
                             </Text>
                         </View>
-                    </>
-                ) : (
-                    <View style={[styles.seasonalWarning, compact && styles.seasonalWarningCompact]}>
-                        <Text style={styles.seasonalWarningIcon}>⚡</Text>
-                        <Text style={[styles.seasonalWarningText, compact && styles.seasonalWarningTextCompact]}>
-                            Giá có thể thay đổi theo mùa/lễ
-                        </Text>
-                    </View>
-                )}
+                    ) : (
+                        <View style={[styles.seasonalWarning, compact && styles.seasonalWarningCompact]}>
+                            <Text style={styles.seasonalWarningIcon}>⚡</Text>
+                            <Text style={[styles.seasonalWarningText, compact && styles.seasonalWarningTextCompact]} numberOfLines={1}>
+                                Giá có thể thay đổi theo mùa/lễ
+                            </Text>
+                        </View>
+                    )}
+                </View>
             </View>
         </Card>
     );
@@ -260,28 +272,26 @@ const styles = StyleSheet.create({
     content: {
         padding: 12,
         flex: 1,
-        justifyContent: "space-between",
-        minHeight: 200,
+        justifyContent: "flex-start",
     },
     contentCompact: {
         padding: 8,
-        minHeight: 160,
-        justifyContent: "space-between",
+        justifyContent: "flex-start",
         flex: 1,
     },
     name: {
         fontSize: 14,
         fontWeight: "700",
         color: "#1e293b",
-        marginBottom: 4,
+        marginBottom: 6,
         lineHeight: 19,
-        maxHeight: 38,
+        height: 38, // 2 lines × 19
     },
     nameCompact: {
         fontSize: 12,
         lineHeight: 16,
-        marginBottom: 3,
-        maxHeight: 34,
+        marginBottom: 4,
+        height: 32, // 2 lines × 16
     },
     locationBadge: {
         position: "absolute",
@@ -312,87 +322,85 @@ const styles = StyleSheet.create({
     ratingRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 3,
-        flexWrap: "wrap",
-        minHeight: 20,
+        height: 20,
+        marginBottom: 6,
+        overflow: "hidden",
     },
     ratingScore: {
         fontSize: 12,
         fontWeight: "700",
         color: "#0891b2",
-        marginLeft: 2,
-        marginBottom: 0,
+        marginLeft: 3,
     },
     ratingScoreCompact: {
         fontSize: 11,
-        marginBottom: 0,
     },
     reviewCount: {
         fontSize: 11,
         color: "#64748b",
-        minHeight: 16,
+        marginLeft: 3,
+        flexShrink: 1,
     },
     reviewCountCompact: {
         fontSize: 10,
         color: "#94a3b8",
-        marginBottom: 2,
-        minHeight: 14,
+        marginLeft: 3,
+        flexShrink: 1,
     },
     noRating: {
         fontSize: 11,
         color: "#94a3b8",
-        marginBottom: 3,
-        minHeight: 18,
+        lineHeight: 20,
     },
     noRatingCompact: {
         fontSize: 10,
-        marginBottom: 2,
-        minHeight: 16,
-    },
-    footer: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        justifyContent: "space-between",
-        marginTop: 0,
+        lineHeight: 20,
     },
     priceRow: {
         flexDirection: "row",
         alignItems: "baseline",
-        minHeight: 18,
+        height: 22,
+        marginBottom: 2,
     },
     price: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: "700",
         color: "#0891b2",
-        marginBottom: 0,
     },
     priceCompact: {
-        fontSize: 12,
-        marginBottom: 0,
+        fontSize: 13,
     },
     currency: {
         fontSize: 11,
         color: "#64748b",
         marginLeft: 2,
-        marginBottom: 0,
     },
     currencyCompact: {
         fontSize: 10,
-        marginBottom: 0,
+    },
+    // Placeholder line for original price — keeps height consistent
+    originalPriceLine: {
+        height: 16,
+        justifyContent: "center",
+        marginBottom: 4,
+    },
+    originalPricePlaceholder: {
+        height: 16,
     },
     originalPrice: {
         fontSize: 10,
         color: "#64748b",
-        marginTop: 2,
-        minHeight: 14,
     },
     originalPriceCompact: {
         fontSize: 9,
-        marginTop: 2,
-        minHeight: 13,
     },
     strikethrough: {
         textDecorationLine: "line-through",
+    },
+    // Seasonal badge container — fixed height so both cards align
+    seasonalBadgeContainer: {
+        height: 28,
+        justifyContent: "center",
     },
     seasonalActive: {
         flexDirection: "row",
@@ -400,21 +408,18 @@ const styles = StyleSheet.create({
         backgroundColor: "#ecfdf5",
         borderRadius: 6,
         paddingHorizontal: 8,
-        paddingVertical: 4,
-        marginTop: 0,
+        paddingVertical: 0,
         borderWidth: 1,
         borderColor: "#a7f3d0",
-        minHeight: 24,
+        height: 28,
+        overflow: "hidden",
     },
     seasonalActiveCompact: {
         paddingHorizontal: 6,
-        paddingVertical: 3,
-        marginTop: 0,
     },
     seasonalActiveIcon: {
         fontSize: 10,
         marginRight: 4,
-        marginBottom: 0,
     },
     seasonalActiveText: {
         fontSize: 10,
@@ -422,12 +427,10 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         flex: 1,
         lineHeight: 14,
-        marginBottom: 0,
     },
     seasonalActiveTextCompact: {
         fontSize: 9,
         lineHeight: 12,
-        marginBottom: 0,
     },
     seasonalWarning: {
         flexDirection: "row",
@@ -435,21 +438,18 @@ const styles = StyleSheet.create({
         backgroundColor: "#fffbeb",
         borderRadius: 6,
         paddingHorizontal: 8,
-        paddingVertical: 5,
-        marginTop: 0,
+        paddingVertical: 0,
         borderWidth: 1,
         borderColor: "#fde68a",
-        minHeight: 28,
+        height: 28,
+        overflow: "hidden",
     },
     seasonalWarningCompact: {
         paddingHorizontal: 6,
-        paddingVertical: 4,
-        marginTop: 0,
     },
     seasonalWarningIcon: {
         fontSize: 11,
         marginRight: 4,
-        marginBottom: 0,
     },
     seasonalWarningText: {
         fontSize: 10,
@@ -457,13 +457,12 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         flex: 1,
         lineHeight: 14,
-        marginBottom: 0,
     },
     seasonalWarningTextCompact: {
         fontSize: 9,
         lineHeight: 12,
-        marginBottom: 0,
     },
+    // Removed: seasonalInfoContainer (replaced by seasonalBadgeContainer)
     skeleton: {
         backgroundColor: "#e2e8f0",
     },

@@ -8,6 +8,7 @@ import {
 import { bookingService } from "@/service/booking/bookingService";
 import type { Booking } from "@/types";
 import { showToast } from "@/utils/toast";
+import { formatLocalDate } from "@/utils";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -106,8 +107,8 @@ export default function BookingEditScreen() {
             setSaving(true);
             const res = await bookingService.modifyBooking(bookingId, {
                 homestayId: booking.homestayId,
-                checkIn: checkInDate.toISOString().split("T")[0],
-                checkOut: checkOutDate.toISOString().split("T")[0],
+                checkIn: formatLocalDate(checkInDate),
+                checkOut: formatLocalDate(checkOutDate),
                 guestsCount: guestCount,
                 contactPhone: phone,
                 specialRequests: specialRequests || undefined,

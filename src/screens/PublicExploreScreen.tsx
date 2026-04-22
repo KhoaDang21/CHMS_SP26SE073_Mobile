@@ -13,6 +13,7 @@ import { provinceService, type Province } from "@/service/location/provinceServi
 import type { Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
+import { formatLocalDate } from "@/utils";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -49,7 +50,7 @@ export default function PublicExploreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState("");
 
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = useMemo(() => formatLocalDate(new Date()), []);
 
   const loadHomestays = useCallback(async () => {
     try {
@@ -147,7 +148,7 @@ export default function PublicExploreScreen() {
   const addDays = (dateStr: string, days: number) => {
     const d = new Date(dateStr);
     d.setDate(d.getDate() + days);
-    return d.toISOString().split("T")[0];
+    return formatLocalDate(d);
   };
 
   const displayHomestays = homestays;

@@ -1,5 +1,6 @@
 import { AlertDialog, Button, Card, Divider, EmptyState, Header, LoadingIndicator, StatusBadge } from "@/components";
 import { bookingService } from "@/service/booking/bookingService";
+import { refundService, type PendingRefund } from "@/service/refund/refundService";
 import { reviewService } from "@/service/review/reviewService";
 import type { Booking } from "@/types";
 import { logger } from "@/utils/logger";
@@ -39,6 +40,7 @@ export default function BookingsScreen() {
   const [cancelDialogVisible, setCancelDialogVisible] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
+  const [refundsMap, setRefundsMap] = useState<Map<string, PendingRefund>>(new Map());
 
   const loadBookings = useCallback(async () => {
     try {
@@ -50,6 +52,10 @@ export default function BookingsScreen() {
         return tb - ta;
       });
       setItems(sorted);
+      // Load refunds
+      const refunds = await refundService.getMyRefunds().catch(() => []);
+      const map = new Map(refunds.map((r) => [r.bookingId, r]));
+      setRefundsMap(map);
     } catch (error) {
       showToast("Không thể tải danh sách đặt phòng", "error");
     } finally {
@@ -121,6 +127,7 @@ export default function BookingsScreen() {
     const nights = getNights(item.checkIn, item.checkOut);
     const meta = STATUS_META[item.status] ?? STATUS_META.PENDING;
     const hasReview = reviewedBookings.has(item.id);
+    const refund = refundsMap.get(item.id);
 
     return (
       <Card style={styles.bookingCard} onPress={() => navigation.navigate("BookingDetail", { bookingId: item.id, booking: item })}>
@@ -137,6 +144,12 @@ export default function BookingsScreen() {
           <View style={styles.statusRow}>
             <StatusBadge status={item.status} />
             {item.paymentStatus && <StatusBadge status={item.paymentStatus} />}
+            {refund && (
+              <View style={[styles.refundBadge, refund.refundStatus === "COMPLETED" ? styles.refundBadgeCompleted : styles.refundBadgePending]}>
+                <MaterialCommunityIcons name={refund.refundStatus === "COMPLETED" ? "check-circle" : "clock-outline"} size={12} color="#fff" />
+                <Text style={styles.refundBadgeText}>{refund.refundStatus === "COMPLETED" ? "Đã hoàn" : "Chờ hoàn"}</Text>
+              </View>
+            )}
           </View>
 
           <Divider style={styles.divider} />
@@ -183,6 +196,12 @@ export default function BookingsScreen() {
               <View style={styles.priceRow}>
                 <Text style={styles.priceSubLabel}>Còn lại</Text>
                 <Text style={[styles.priceSubValue, { color: "#f59e0b" }]}>₫{item.remainingAmount.toLocaleString("vi-VN")}</Text>
+              </View>
+            )}
+            {refund && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceSubLabel}>Hoàn tiền</Text>
+                <Text style={[styles.priceSubValue, { color: refund.refundStatus === "COMPLETED" ? "#059669" : "#d97706" }]}>₫{refund.refundAmount.toLocaleString("vi-VN")}</Text>
               </View>
             )}
           </View>
@@ -322,4 +341,8 @@ const styles = StyleSheet.create({
   btnTextLight: { fontSize: 12, fontWeight: "700", color: "#fff" },
   btnTextDark: { fontSize: 12, fontWeight: "700", color: "#0891b2" },
   btnTextDanger: { fontSize: 12, fontWeight: "700", color: "#ef4444" },
+  refundBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  refundBadgePending: { backgroundColor: "#d97706" },
+  refundBadgeCompleted: { backgroundColor: "#059669" },
+  refundBadgeText: { fontSize: 11, fontWeight: "600", color: "#fff" },
 });
