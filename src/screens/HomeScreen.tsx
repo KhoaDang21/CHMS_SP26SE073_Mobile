@@ -13,6 +13,7 @@ import {
 import { districtService, type District } from "@/service/location/districtService";
 import { provinceService, type Province } from "@/service/location/provinceService";
 import { wishlistService } from "@/service/wishlist/wishlistService";
+import { formatLocalDate } from "@/utils";
 import type { Booking, Homestay } from "@/types";
 import { logger } from "@/utils/logger";
 import { showToast } from "@/utils/toast";
@@ -57,8 +58,8 @@ export default function HomeScreen() {
   const [picker, setPicker] = useState<"province" | "district" | null>(null);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
 
-  const checkInStr = checkInDate ? checkInDate.toISOString().split("T")[0] : null;
-  const checkOutStr = checkOutDate ? checkOutDate.toISOString().split("T")[0] : null;
+  const checkInStr = checkInDate ? formatLocalDate(checkInDate) : null;
+  const checkOutStr = checkOutDate ? formatLocalDate(checkOutDate) : null;
 
   const loadHomestays = useCallback(async () => {
     try {
