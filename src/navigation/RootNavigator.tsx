@@ -2,6 +2,7 @@ import {
   AboutScreen,
   BicycleGamificationScreen,
   BookingDetailScreen,
+  BookingDiningScreen,
   BookingEditScreen,
   BookingsScreen,
   ChatScreen,
@@ -43,6 +44,7 @@ export type RootStackParamList = {
   HomestayDetail: { id: string };
   BookingDetail: { bookingId: string };
   BookingEdit: { bookingId: string };
+  BookingDining: { bookingId: string };
   PaymentInitiation: { bookingId: string; booking?: any };
   LocalExperiences: undefined;
   Reviews: undefined;
@@ -332,6 +334,10 @@ export default function RootNavigator() {
               <Stack.Screen
                 name="BookingEdit"
                 component={BookingEditScreen}
+              />
+              <Stack.Screen
+                name="BookingDining"
+                component={BookingDiningScreen}
               />
               <Stack.Screen
                 name="PaymentInitiation"

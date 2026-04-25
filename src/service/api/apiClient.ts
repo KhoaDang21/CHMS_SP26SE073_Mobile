@@ -168,4 +168,10 @@ export const apiClient = {
   delete<T>(endpoint: string) {
     return request<T>(endpoint, { method: "DELETE" });
   },
+  patch<T>(endpoint: string, payload?: unknown) {
+    return request<T>(endpoint, {
+      method: "PATCH",
+      body: payload !== undefined ? JSON.stringify(payload) : undefined,
+    });
+  },
 };

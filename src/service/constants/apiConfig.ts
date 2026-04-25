@@ -136,5 +136,14 @@ export const apiConfig = {
       detail: (id: string) =>
         `/api/admin/cancellation-policies/refund-detail/${id}`,
     },
+    dining: {
+      combosByHomestay: (homestayId: string) =>
+        `/api/customer/dining/homestays/${homestayId}/combos`,
+      availableSlots: (homestayId: string) =>
+        `/api/customer/dining/homestays/${homestayId}/slots`,
+      createOrder: "/api/customer/dining/order",
+      cancelOrder: (orderId: string) =>
+        `/api/customer/dining/orders/${orderId}/cancel`,
+    },
   },
 };

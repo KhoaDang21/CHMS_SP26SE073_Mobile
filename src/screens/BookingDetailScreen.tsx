@@ -589,6 +589,19 @@ export default function BookingDetailScreen() {
             </View>
           )}
 
+          {/* Dining — chỉ hiện khi đang lưu trú */}
+          {(booking.status === "CHECKED_IN" || booking.status === "CONFIRMED") && (
+            <TouchableOpacity
+              style={styles.diningBtn}
+              onPress={() => navigation.navigate("BookingDining", { bookingId: booking.id })}
+            >
+              <LinearGradient colors={["#ea580c", "#f97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.diningBtnGradient}>
+                <MaterialCommunityIcons name="silverware-fork-knife" size={18} color="#fff" />
+                <Text style={styles.diningBtnText}>🍽️ Đặt món ăn · Tính vào hóa đơn phòng</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
           {/* View homestay */}
           {resolvedHomestayId ? (
             <Button
@@ -731,4 +744,7 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   reviewedBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#d1fae5", borderRadius: 12, padding: 12, marginBottom: 10 },
   reviewedText: { fontSize: 13, color: "#059669", fontWeight: "600" },
+  diningBtn: { marginBottom: 10, borderRadius: 14, overflow: "hidden" },
+  diningBtnGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16, paddingHorizontal: 20 },
+  diningBtnText: { fontSize: 15, fontWeight: "800", color: "#fff" },
 });
