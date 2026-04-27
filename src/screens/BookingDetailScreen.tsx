@@ -589,8 +589,8 @@ export default function BookingDetailScreen() {
             </View>
           )}
 
-          {/* Dining — chỉ hiện khi đang lưu trú */}
-          {(booking.status === "CHECKED_IN" || booking.status === "CONFIRMED") && (
+          {/* Dining — chỉ hiện khi đang lưu trú và chưa qua ngày checkout */}
+          {(booking.status === "CHECKED_IN" || booking.status === "CONFIRMED") && new Date(booking.checkOut) > new Date() && (
             <TouchableOpacity
               style={styles.diningBtn}
               onPress={() => navigation.navigate("BookingDining", { bookingId: booking.id })}

@@ -24,7 +24,25 @@ import type { Booking } from "@/types";
 
 const dateISO = (d: Date) => d.toISOString().slice(0, 10);
 const timeLabel = (t: string) => String(t || "").slice(0, 5);
+const timeRangeLabel = (start: string, end?: string) => {
+  const s = timeLabel(start);
+  const e = timeLabel(end || "");
+  return e ? `${s} - ${e}` : s;
+};
 const fmtVND = (n: number) => `₫${Number(n || 0).toLocaleString("vi-VN")}`;
+
+const addDaysISO = (iso: string, delta: number) => {
+  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
+  d.setDate(d.getDate() + delta);
+  return dateISO(d);
+};
+
+const clampDateISO = (value: string, min: string, max: string) => {
+  const v = String(value || "").slice(0, 10);
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+};
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
   PENDING:   { label: "Chờ xác nhận", color: "#d97706", bg: "#fef3c7" },
@@ -102,7 +120,7 @@ function OrderItem({ order, onCancel }: { order: DiningOrder; onCancel: () => vo
       <View style={styles.orderInfo}>
         <Text style={styles.orderName} numberOfLines={1}>{order.comboName}</Text>
         <Text style={styles.orderMeta}>
-          {String(order.orderDate || "").slice(0, 10)} · {timeLabel(order.startTime)}
+          {String(order.orderDate || "").slice(0, 10)} · {timeRangeLabel(order.startTime, order.endTime)}
         </Text>
         <Text style={styles.orderMeta}>
           {order.serveLocation === "BEACH" ? "Bãi biển" : "Phòng"} · {fmtVND(order.price)}
@@ -135,10 +153,14 @@ function DatePickerModal({ visible, current, checkIn, checkOut, onSelect, onClos
   onClose: () => void;
 }) {
   const dates: string[] = [];
+  const today = dateISO(new Date());
   const start = new Date(checkIn);
+  // Allowed dining dates: [checkIn, checkOut) => exclude checkout day
   const end = new Date(checkOut);
+  end.setDate(end.getDate() - 1);
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    dates.push(dateISO(new Date(d)));
+    const iso = dateISO(new Date(d));
+    if (iso >= today) dates.push(iso); // filter out past dates
   }
 
   return (
@@ -147,18 +169,26 @@ function DatePickerModal({ visible, current, checkIn, checkOut, onSelect, onClos
         <View style={styles.modalSheet}>
           <Text style={styles.modalTitle}>Chọn ngày phục vụ</Text>
           <ScrollView>
-            {dates.map((d) => (
-              <TouchableOpacity
-                key={d}
-                onPress={() => { onSelect(d); onClose(); }}
-                style={[styles.dateRow, d === current && styles.dateRowSelected]}
-              >
-                <Text style={[styles.dateRowText, d === current && styles.dateRowTextSelected]}>
-                  {new Date(d).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
+            {dates.length === 0 ? (
+              <View style={{ paddingVertical: 14 }}>
+                <Text style={{ fontSize: 13, color: "#64748b" }}>
+                  Không có ngày khả dụng (booking đã quá hạn hoặc đã qua ngày lưu trú).
                 </Text>
-                {d === current && <MaterialCommunityIcons name="check" size={18} color="#0891b2" />}
-              </TouchableOpacity>
-            ))}
+              </View>
+            ) : (
+              dates.map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  onPress={() => { onSelect(d); onClose(); }}
+                  style={[styles.dateRow, d === current && styles.dateRowSelected]}
+                >
+                  <Text style={[styles.dateRowText, d === current && styles.dateRowTextSelected]}>
+                    {new Date(d).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
+                  </Text>
+                  {d === current && <MaterialCommunityIcons name="check" size={18} color="#0891b2" />}
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </View>
       </Pressable>
@@ -194,6 +224,17 @@ export default function BookingDiningScreen() {
   const selectedCombo = useMemo(() => combos.find((c) => c.id === selectedComboId) ?? null, [combos, selectedComboId]);
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) ?? null, [slots, selectedSlotId]);
 
+  const dateBounds = useMemo(() => {
+    const today = dateISO(new Date());
+    const checkIn = String((booking as any)?.checkIn ?? (booking as any)?.CheckIn ?? "");
+    const checkOut = String((booking as any)?.checkOut ?? (booking as any)?.CheckOut ?? "");
+    const maxStayDate = checkOut ? addDaysISO(checkOut, -1) : "";
+    const minAllowed = checkIn ? (today > checkIn ? today : checkIn) : today;
+    const maxAllowed = maxStayDate || today;
+    const expired = !!maxStayDate && today > maxStayDate;
+    return { today, checkIn, checkOut, minAllowed, maxAllowed, expired };
+  }, [booking]);
+
   const load = useCallback(async () => {
     if (!bookingId) { navigation.goBack(); return; }
     setLoading(true);
@@ -210,6 +251,15 @@ export default function BookingDiningScreen() {
       setCombos(comboList);
       if (comboList.length > 0) setSelectedComboId(comboList[0].id);
 
+      // Clamp currently selected date to valid range once booking loaded
+      const today = dateISO(new Date());
+      const checkIn = String((detail as any)?.checkIn ?? (detail as any)?.CheckIn ?? "");
+      const checkOut = String((detail as any)?.checkOut ?? (detail as any)?.CheckOut ?? "");
+      const maxStayDate = checkOut ? addDaysISO(checkOut, -1) : "";
+      const minAllowed = checkIn ? (today > checkIn ? today : checkIn) : today;
+      const maxAllowed = maxStayDate || today;
+      setDate((prev) => clampDateISO(prev || minAllowed, minAllowed, maxAllowed));
+
       // Load existing orders from booking detail
       const anyDetail = detail as any;
       const rawOrders: any[] = anyDetail?.diningOrders ?? anyDetail?.DiningOrders ?? [];
@@ -219,7 +269,8 @@ export default function BookingDiningScreen() {
           comboName: String(o?.comboName ?? o?.ComboName ?? ""),
           imageUrl: o?.imageUrl ?? o?.ImageUrl,
           orderDate: String(o?.orderDate ?? o?.OrderDate ?? ""),
-          startTime: String(o?.startTime ?? o?.StartTime ?? "").slice(0, 5),
+          startTime: String(o?.startTime ?? o?.StartTime ?? ""),
+          endTime: String(o?.endTime ?? o?.EndTime ?? ""),
           serveLocation: String(o?.serveLocation ?? o?.ServeLocation ?? "ROOM"),
           status: String(o?.status ?? o?.Status ?? "PENDING"),
           price: Number(o?.price ?? o?.Price ?? 0),
@@ -252,11 +303,19 @@ export default function BookingDiningScreen() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (booking?.homestayId && date) loadSlots(booking.homestayId, date);
-  }, [booking?.homestayId, date]);
+    if (booking?.homestayId && date && !dateBounds.expired) loadSlots(booking.homestayId, date);
+  }, [booking?.homestayId, date, dateBounds.expired]);
 
   const placeOrder = async () => {
     if (!booking || !selectedComboId || !selectedSlotId) return;
+    if (dateBounds.expired) {
+      showToast("Booking đã quá hạn lưu trú, không thể đặt món.", "error");
+      return;
+    }
+    if (date < dateBounds.minAllowed || date > dateBounds.maxAllowed) {
+      showToast("Ngày phục vụ không hợp lệ (đã qua hạn hoặc ngoài thời gian lưu trú).", "error");
+      return;
+    }
     if (selectedSlot && !selectedSlot.isAvailable) {
       showToast(selectedSlot.disableReason || "Khung giờ không khả dụng", "error");
       return;
@@ -346,6 +405,11 @@ export default function BookingDiningScreen() {
             </Text>
             <MaterialCommunityIcons name="chevron-down" size={18} color="#64748b" />
           </TouchableOpacity>
+          {dateBounds.expired && (
+            <Text style={{ marginTop: 8, fontSize: 12, color: "#dc2626", fontWeight: "600" }}>
+              Booking đã quá hạn lưu trú, không thể đặt món.
+            </Text>
+          )}
         </View>
 
         {/* Section: Vị trí phục vụ */}
@@ -444,8 +508,8 @@ export default function BookingDiningScreen() {
 
         <TouchableOpacity
           onPress={placeOrder}
-          disabled={submitting || !selectedComboId || !selectedSlotId}
-          style={[styles.orderBtn, (submitting || !selectedComboId || !selectedSlotId) && styles.orderBtnDisabled]}
+          disabled={submitting || !selectedComboId || !selectedSlotId || dateBounds.expired}
+          style={[styles.orderBtn, (submitting || !selectedComboId || !selectedSlotId || dateBounds.expired) && styles.orderBtnDisabled]}
           activeOpacity={0.85}
         >
           {submitting ? (
@@ -460,7 +524,7 @@ export default function BookingDiningScreen() {
         {orders.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Đơn đã đặt ({orders.length})</Text>
-            <Text style={styles.sectionSubtitle}>Chỉ hủy được khi đơn đang "Chờ xác nhận" và chưa quá giờ chốt.</Text>
+            <Text style={styles.sectionSubtitle}>Chỉ hủy được khi đơn đang &quot;Chờ xác nhận&quot; và chưa quá giờ chốt.</Text>
             {orders
               .slice()
               .sort((a, b) => String(b.orderDate).localeCompare(String(a.orderDate)))

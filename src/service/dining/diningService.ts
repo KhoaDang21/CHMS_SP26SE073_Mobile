@@ -60,6 +60,7 @@ export type DiningOrder = {
   imageUrl?: string;
   orderDate: string;
   startTime: string;
+  endTime?: string;
   serveLocation: string;
   status: string;
   price: number;
@@ -96,6 +97,7 @@ const mapOrder = (item: AnyRecord): DiningOrder => ({
   imageUrl: pick(item, "imageUrl", "ImageUrl"),
   orderDate: asStr(pick(item, "orderDate", "OrderDate")),
   startTime: normalizeTime(pick(item, "startTime", "StartTime")),
+  endTime: normalizeTime(pick(item, "endTime", "EndTime")),
   serveLocation: asStr(pick(item, "serveLocation", "ServeLocation")),
   status: asStr(pick(item, "status", "Status")),
   price: Number(pick(item, "price", "Price") ?? 0),

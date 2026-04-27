@@ -241,8 +241,8 @@ export default function BookingsScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Đặt món — hiện khi CONFIRMED hoặc CHECKED_IN, giống FE web */}
-          {(item.status === "CONFIRMED" || item.status === "CHECKED_IN") && (
+          {/* Đặt món — hiện khi CONFIRMED hoặc CHECKED_IN và chưa qua ngày checkout */}
+          {(item.status === "CONFIRMED" || item.status === "CHECKED_IN") && new Date(item.checkOut) > new Date() && (
             <TouchableOpacity
               style={[styles.actionBtn, styles.btnDining, { marginTop: 12, width: "100%" }]}
               onPress={() => navigation.navigate("BookingDining", { bookingId: item.id })}

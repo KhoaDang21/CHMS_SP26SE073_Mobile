@@ -105,7 +105,8 @@ export default function BicycleGamificationScreen() {
         }
       })();
       return () => { active = false; };
-    }, []), // eslint-disable-line react-hooks/exhaustive-deps — chỉ chạy khi focus
+    // Chỉ chạy khi screen focus (không muốn re-run theo deps).
+    }, []), // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // ─── 4. Khi user chọn booking khác → reload game data ────────────────────
@@ -321,7 +322,7 @@ export default function BicycleGamificationScreen() {
                 <View style={styles.sectionCard}>
                   <Text style={styles.sectionTitle}>Lộ trình & địa điểm ẩn</Text>
                   <Text style={styles.sectionHint}>
-                    Bấm "Check-in tại đây" khi bạn đang đứng gần địa điểm đó (trong vòng 50m). Ứng dụng sẽ tự xác định vị trí của bạn.
+                    Bấm &quot;Check-in tại đây&quot; khi bạn đang đứng gần địa điểm đó (trong vòng 50m). Ứng dụng sẽ tự xác định vị trí của bạn.
                   </Text>
                   {routes.length === 0 ? (
                     <View style={styles.emptyBox}>
