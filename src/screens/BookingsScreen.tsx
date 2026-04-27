@@ -240,6 +240,17 @@ export default function BookingsScreen() {
               <Text style={styles.btnTextLight}>Viết đánh giá</Text>
             </TouchableOpacity>
           )}
+
+          {/* Đặt món — hiện khi CONFIRMED hoặc CHECKED_IN và chưa qua ngày checkout */}
+          {(item.status === "CONFIRMED" || item.status === "CHECKED_IN") && new Date(item.checkOut) > new Date() && (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.btnDining, { marginTop: 12, width: "100%" }]}
+              onPress={() => navigation.navigate("BookingDining", { bookingId: item.id })}
+            >
+              <MaterialCommunityIcons name="silverware-fork-knife" size={14} color="#fff" />
+              <Text style={styles.btnTextLight}>🍽️ Đặt món ăn</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </Card>
     );
@@ -338,6 +349,7 @@ const styles = StyleSheet.create({
   btnSecondary: { backgroundColor: "#e0f2fe", borderWidth: 1, borderColor: "#0891b2" },
   btnDanger: { backgroundColor: "#fee2e2", borderWidth: 1, borderColor: "#ef4444" },
   btnReview: { backgroundColor: "#f59e0b" },
+  btnDining: { backgroundColor: "#ea580c" },
   btnTextLight: { fontSize: 12, fontWeight: "700", color: "#fff" },
   btnTextDark: { fontSize: 12, fontWeight: "700", color: "#0891b2" },
   btnTextDanger: { fontSize: 12, fontWeight: "700", color: "#ef4444" },
