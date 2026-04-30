@@ -56,6 +56,15 @@ export type AvailableTimeSlot = {
 
 export type DiningOrder = {
   id: string;
+  // Manager-level fields (present when returned from booking detail or manager views)
+  bookingId?: string;
+  homestayId?: string;
+  homestayName?: string;
+  customerId?: string;
+  customerName?: string;
+  comboId?: string;
+  timeSlotId?: string;
+  // Common fields
   comboName: string;
   imageUrl?: string;
   orderDate: string;
@@ -93,11 +102,18 @@ const mapSlot = (item: AnyRecord): AvailableTimeSlot => ({
 
 const mapOrder = (item: AnyRecord): DiningOrder => ({
   id: asStr(pick(item, "id", "Id")),
+  bookingId: pick(item, "bookingId", "BookingId") ? asStr(pick(item, "bookingId", "BookingId")) : undefined,
+  homestayId: pick(item, "homestayId", "HomestayId") ? asStr(pick(item, "homestayId", "HomestayId")) : undefined,
+  homestayName: pick(item, "homestayName", "HomestayName") ? asStr(pick(item, "homestayName", "HomestayName")) : undefined,
+  customerId: pick(item, "customerId", "CustomerId") ? asStr(pick(item, "customerId", "CustomerId")) : undefined,
+  customerName: pick(item, "customerName", "CustomerName") ? asStr(pick(item, "customerName", "CustomerName")) : undefined,
+  comboId: pick(item, "comboId", "ComboId") ? asStr(pick(item, "comboId", "ComboId")) : undefined,
+  timeSlotId: pick(item, "timeSlotId", "TimeSlotId") ? asStr(pick(item, "timeSlotId", "TimeSlotId")) : undefined,
   comboName: asStr(pick(item, "comboName", "ComboName")),
   imageUrl: pick(item, "imageUrl", "ImageUrl"),
   orderDate: asStr(pick(item, "orderDate", "OrderDate")),
   startTime: normalizeTime(pick(item, "startTime", "StartTime")),
-  endTime: normalizeTime(pick(item, "endTime", "EndTime")),
+  endTime: normalizeTime(pick(item, "endTime", "EndTime")) || undefined,
   serveLocation: asStr(pick(item, "serveLocation", "ServeLocation")),
   status: asStr(pick(item, "status", "Status")),
   price: Number(pick(item, "price", "Price") ?? 0),
