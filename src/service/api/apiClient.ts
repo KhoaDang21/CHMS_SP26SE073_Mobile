@@ -66,13 +66,16 @@ async function request<T>(
   try {
     const url = `${apiConfig.baseURL}${endpoint}`;
 
+    // If body is FormData, let fetch set Content-Type (with boundary) automatically
+    const isFormData = options.body instanceof FormData;
+
+    const headers: Record<string, string> = {};
+    if (!isFormData) headers["Content-Type"] = "application/json";
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     let response = await fetch(url, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
-      },
+      headers,
       signal: controller.signal,
     });
 
@@ -84,21 +87,21 @@ async function request<T>(
     ) {
       const newToken = await refreshAccessToken();
       if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`;
         response = await fetch(url, {
           ...options,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${newToken}`,
-            ...options.headers,
-          },
+          headers,
           signal: controller.signal,
         });
       }
     }
 
-    const data = await response.json().catch(() => ({}));
+    const rawText = await response.text().catch(() => "");
+    let data: any = {};
+    try { data = JSON.parse(rawText); } catch { /* non-JSON response */ }
 
     if (!response.ok) {
+      console.error(`[API] ${response.status} ${endpoint}`, rawText);
       // Extract error message from various BE response shapes:
       // { message }, { Message }, { data: { message } }, { errors: { field: [...] } }, { title }
       let errorMessage: string =
@@ -172,6 +175,13 @@ export const apiClient = {
     return request<T>(endpoint, {
       method: "PATCH",
       body: payload !== undefined ? JSON.stringify(payload) : undefined,
+    });
+  },
+  postForm<T>(endpoint: string, formData: FormData) {
+    // Do NOT set Content-Type — fetch sets it automatically with boundary for multipart/form-data
+    return request<T>(endpoint, {
+      method: "POST",
+      body: formData,
     });
   },
 };
