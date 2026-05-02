@@ -1,4 +1,5 @@
 import { AlertDialog, Button, Card, Divider, EmptyState, Header, LoadingIndicator, StatusBadge } from "@/components";
+import CancelRefundModal from "@/components/CancelRefundModal";
 import { bookingService } from "@/service/booking/bookingService";
 import { refundService, type PendingRefund } from "@/service/refund/refundService";
 import { reviewService } from "@/service/review/reviewService";
@@ -86,23 +87,16 @@ export default function BookingsScreen() {
     loadReviews();
   }, [loadBookings, loadReviews]);
 
-  const handleCancelBooking = useCallback(async () => {
-    if (!selectedBookingId) return;
-    try {
-      const res = await bookingService.cancelBooking(selectedBookingId);
-      if (res.success) {
-        showToast("Hủy đặt phòng thành công", "success");
-        loadBookings();
-      } else {
-        showToast(res.message || "Không thể hủy đặt phòng", "error");
-      }
-    } catch {
-      showToast("Lỗi khi hủy đặt phòng", "error");
-    } finally {
-      setCancelDialogVisible(false);
-      setSelectedBookingId(null);
+  const handleCancelSuccess = useCallback((refundAmount: number, message: string) => {
+    setCancelDialogVisible(false);
+    setSelectedBookingId(null);
+    if (refundAmount >= 0) {
+      showToast(message || "Hủy đặt phòng thành công", "success");
+      loadBookings();
+    } else {
+      showToast(message || "Không thể hủy đặt phòng", "error");
     }
-  }, [selectedBookingId, loadBookings]);
+  }, [loadBookings]);
 
   const formatDate = (d: string) => {
     try { return new Date(d).toLocaleDateString("vi-VN"); } catch { return d; }
@@ -206,13 +200,21 @@ export default function BookingsScreen() {
             )}
           </View>
 
-          {/* Actions for PENDING */}
-          {item.status === "PENDING" && (
+          {/* Actions for PENDING and CONFIRMED */}
+          {(item.status === "PENDING" || item.status === "CONFIRMED") && (
             <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.actionBtn, styles.btnPrimary]} onPress={() => navigation.navigate("PaymentInitiation", { bookingId: item.id, booking: item })}>
-                <MaterialCommunityIcons name="credit-card-outline" size={14} color="#fff" />
-                <Text style={styles.btnTextLight}>Thanh toán</Text>
-              </TouchableOpacity>
+              {item.status === "PENDING" && (
+                <TouchableOpacity style={[styles.actionBtn, styles.btnPrimary]} onPress={() => navigation.navigate("PaymentInitiation", { bookingId: item.id, booking: item })}>
+                  <MaterialCommunityIcons name="credit-card-outline" size={14} color="#fff" />
+                  <Text style={styles.btnTextLight}>Thanh toán</Text>
+                </TouchableOpacity>
+              )}
+              {item.status === "CONFIRMED" && (
+                <TouchableOpacity style={[styles.actionBtn, styles.btnPrimary]} onPress={() => navigation.navigate("PaymentInitiation", { bookingId: item.id, booking: item })}>
+                  <MaterialCommunityIcons name="credit-card-outline" size={14} color="#fff" />
+                  <Text style={styles.btnTextLight}>Thanh toán nốt</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={[styles.actionBtn, styles.btnSecondary]} onPress={() => {
                 if (item.status === "PENDING") {
                   navigation.navigate("BookingEdit", { bookingId: item.id, booking: item });
@@ -295,15 +297,11 @@ export default function BookingsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0891b2" />}
       />
 
-      <AlertDialog
+      <CancelRefundModal
         visible={cancelDialogVisible}
-        title="Hủy Đặt Phòng"
-        message="Bạn có chắc chắn muốn hủy đặt phòng này không?"
-        confirmText="Hủy đặt phòng"
-        cancelText="Đóng"
-        confirmButtonColor="danger"
-        onConfirm={handleCancelBooking}
-        onCancel={() => { setCancelDialogVisible(false); setSelectedBookingId(null); }}
+        bookingId={selectedBookingId ?? ""}
+        onClose={() => { setCancelDialogVisible(false); setSelectedBookingId(null); }}
+        onSuccess={handleCancelSuccess}
       />
     </SafeAreaView>
   );

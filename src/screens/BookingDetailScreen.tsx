@@ -1,4 +1,5 @@
 import { AlertDialog, Button, Divider, Header, LoadingIndicator } from "@/components";
+import CancelRefundModal from "@/components/CancelRefundModal";
 import { bookingService } from "@/service/booking/bookingService";
 import { extraChargeService } from "@/service/extraCharge/extraChargeService";
 import { publicHomestayService } from "@/service/homestay/publicHomestayService";
@@ -101,7 +102,6 @@ export default function BookingDetailScreen() {
   const [hasReview, setHasReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cancelDialog, setCancelDialog] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
   const [activeImg, setActiveImg] = useState(0);
 
   const load = useCallback(async () => {
@@ -149,24 +149,15 @@ export default function BookingDetailScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleCancel = useCallback(async () => {
-    if (!booking) return;
-    setCancelling(true);
-    try {
-      const res = await bookingService.cancelBooking(booking.id);
-      if (res.success) {
-        showToast("Đã hủy đặt phòng", "success");
-        navigation.goBack();
-      } else {
-        showToast(res.message || "Không thể hủy", "error");
-      }
-    } catch {
-      showToast("Lỗi khi hủy đặt phòng", "error");
-    } finally {
-      setCancelling(false);
-      setCancelDialog(false);
+  const handleCancelSuccess = useCallback((refundAmount: number, message: string) => {
+    setCancelDialog(false);
+    if (refundAmount >= 0) {
+      showToast(message || "Đã hủy đặt phòng", "success");
+      navigation.goBack();
+    } else {
+      showToast(message || "Không thể hủy", "error");
     }
-  }, [booking, navigation]);
+  }, [navigation]);
 
   if (loading) {
     return (
@@ -553,14 +544,15 @@ export default function BookingDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Edit + Cancel for PENDING */}
-          {booking.status === "PENDING" && (
+          {/* Edit + Cancel — hiện cho PENDING và CONFIRMED, disabled khi không thể hủy */}
+          {(booking.status === "PENDING" || booking.status === "CONFIRMED") && (
             <View style={styles.actionsRow}>
               <Button
                 title="Chỉnh sửa"
                 variant="outline"
                 size="large"
                 style={{ flex: 1 }}
+                disabled={booking.status !== "PENDING"}
                 onPress={() => navigation.navigate("BookingEdit", { bookingId: booking.id, booking })}
               />
               <Button
@@ -569,7 +561,6 @@ export default function BookingDetailScreen() {
                 size="large"
                 style={{ flex: 1 }}
                 onPress={() => setCancelDialog(true)}
-                loading={cancelling}
               />
             </View>
           )}
@@ -622,15 +613,11 @@ export default function BookingDetailScreen() {
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      <AlertDialog
+      <CancelRefundModal
         visible={cancelDialog}
-        title="Hủy đặt phòng"
-        message="Bạn có chắc muốn hủy đặt phòng này không? Hành động này không thể hoàn tác."
-        confirmText="Hủy đặt phòng"
-        cancelText="Đóng"
-        confirmButtonColor="danger"
-        onConfirm={handleCancel}
-        onCancel={() => setCancelDialog(false)}
+        bookingId={booking?.id ?? ""}
+        onClose={() => setCancelDialog(false)}
+        onSuccess={handleCancelSuccess}
       />
     </SafeAreaView>
   );

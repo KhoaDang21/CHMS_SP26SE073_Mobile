@@ -55,6 +55,7 @@ export type RootStackParamList = {
   Contact: undefined;
   PaymentResult: { paymentId?: string; bookingId: string };
   CreateReview: { bookingId: string; homestayName?: string };
+  TravelGuides: undefined;
 };
 
 export type AuthStackParamList = {
@@ -109,6 +110,7 @@ const linking: LinkingOptions<RootStackParamList> = {
       Notifications: "notifications",
       NotificationPreferences: "notification-preferences",
       Support: "support",
+      TravelGuides: "travel-guides",
       Chat: "chat",
       Contact: "contact",
       CreateReview: {
@@ -215,7 +217,7 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           }}
         />
         <Tab.Screen
-          name="Support"
+          name="TravelGuides"
           component={TravelGuidesScreen}
           options={{
             tabBarLabel: "Cẩm nang",
@@ -351,6 +353,8 @@ export default function RootNavigator() {
                 name="LocalExperiences"
                 component={LocalExperiencesScreen}
               />
+              <Stack.Screen name="Reviews" component={ReviewsScreen} />
+              <Stack.Screen name="Support" component={SupportScreen} />
             </Stack.Group>
 
             <Stack.Group
@@ -358,7 +362,6 @@ export default function RootNavigator() {
                 presentation: "modal",
               }}
             >
-              <Stack.Screen name="Reviews" component={ReviewsScreen} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
               <Stack.Screen name="NotificationPreferences" component={NotificationPreferencesScreen} />
               <Stack.Screen name="Chat" component={ChatScreen} />
