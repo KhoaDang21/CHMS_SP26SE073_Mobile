@@ -211,6 +211,8 @@ export default function BookingDiningScreen() {
   const [combos, setCombos] = useState<DiningCombo[]>([]);
   const [slots, setSlots] = useState<AvailableTimeSlot[]>([]);
   const [orders, setOrders] = useState<DiningOrder[]>([]);
+  /** Đơn vừa tạo trong phiên — BE GET booking không Include DiningOrders */
+  const [sessionPlacedOrders, setSessionPlacedOrders] = useState<DiningOrder[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   const [date, setDate] = useState(dateISO(new Date()));
@@ -223,6 +225,17 @@ export default function BookingDiningScreen() {
 
   const selectedCombo = useMemo(() => combos.find((c) => c.id === selectedComboId) ?? null, [combos, selectedComboId]);
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) ?? null, [slots, selectedSlotId]);
+
+  const displayOrders = useMemo(() => {
+    const byId = new Map<string, DiningOrder>();
+    for (const o of orders) {
+      if (o.id) byId.set(o.id, o);
+    }
+    for (const o of sessionPlacedOrders) {
+      if (o.id) byId.set(o.id, o);
+    }
+    return Array.from(byId.values());
+  }, [orders, sessionPlacedOrders]);
 
   const dateBounds = useMemo(() => {
     const today = dateISO(new Date());
@@ -277,12 +290,18 @@ export default function BookingDiningScreen() {
           paymentStatus: String(o?.paymentStatus ?? o?.PaymentStatus ?? ""),
           note: o?.note ?? o?.Note,
         })));
+      } else {
+        setOrders([]);
       }
     } catch (e: any) {
       showToast(e?.message || "Không thể tải dữ liệu", "error");
     } finally {
       setLoading(false);
     }
+  }, [bookingId, navigation]);
+
+  useEffect(() => {
+    setSessionPlacedOrders([]);
   }, [bookingId]);
 
   const loadSlots = useCallback(async (homestayId: string, d: string) => {
@@ -331,6 +350,9 @@ export default function BookingDiningScreen() {
         note: note.trim() || undefined,
       });
       if (res.success) {
+        if (res.data?.id) {
+          setSessionPlacedOrders((prev) => [...prev.filter((x) => x.id !== res.data!.id), res.data!]);
+        }
         showToast("Đặt món thành công! Tiền sẽ cộng vào hóa đơn phòng.", "success");
         setNote("");
         setSelectedSlotId("");
@@ -347,6 +369,7 @@ export default function BookingDiningScreen() {
   const cancelOrder = async (orderId: string) => {
     const res = await diningService.cancelOrder(orderId);
     if (res.success) {
+      setSessionPlacedOrders((prev) => prev.filter((x) => x.id !== orderId));
       showToast("Đã hủy món. Tiền đã được trừ khỏi hóa đơn.", "success");
       await load();
     } else {
@@ -521,11 +544,11 @@ export default function BookingDiningScreen() {
         </TouchableOpacity>
 
         {/* Section: Đơn đã đặt */}
-        {orders.length > 0 && (
+        {displayOrders.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Đơn đã đặt ({orders.length})</Text>
+            <Text style={styles.sectionTitle}>Đơn đã đặt ({displayOrders.length})</Text>
             <Text style={styles.sectionSubtitle}>Chỉ hủy được khi đơn đang &quot;Chờ xác nhận&quot; và chưa quá giờ chốt.</Text>
-            {orders
+            {displayOrders
               .slice()
               .sort((a, b) => String(b.orderDate).localeCompare(String(a.orderDate)))
               .map((o) => (

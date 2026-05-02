@@ -169,6 +169,49 @@ export const bookingService = {
     };
   },
 
+  /** POST /api/bookings/cancel — hủy + hoàn tiền (nhận bank info) */
+  async cancelAndRefund(
+    bookingId: string,
+    reason: string,
+    bankInfo: { bankName: string; accountNumber: string; accountHolderName: string },
+  ): Promise<{ isSuccess: boolean; refundAmount: number; message: string }> {
+    try {
+      const res = await apiClient.post<Record<string, unknown>>(
+        apiConfig.endpoints.bookings.cancelAndRefund,
+        {
+          bookingId,
+          reason,
+          bankName: bankInfo.bankName,
+          accountNumber: bankInfo.accountNumber,
+          accountHolderName: bankInfo.accountHolderName,
+        },
+      );
+      return {
+        isSuccess: Boolean((res as any)?.isSuccess ?? (res as any)?.success ?? true),
+        refundAmount: Number((res as any)?.refundAmount ?? 0),
+        message: String((res as any)?.message ?? "Hủy thành công"),
+      };
+    } catch (e: any) {
+      return { isSuccess: false, refundAmount: 0, message: e?.message ?? "Lỗi khi hủy" };
+    }
+  },
+
+  /** GET /api/bookings/{id}/preview-refund — xem trước số tiền hoàn */
+  async previewRefund(id: string): Promise<{ estimatedRefund: number; message: string } | null> {
+    try {
+      const res = await apiClient.get<Record<string, unknown>>(
+        apiConfig.endpoints.bookings.previewRefund(id),
+      );
+      const data = (res as any)?.data ?? res;
+      return {
+        estimatedRefund: Number(data?.EstimatedRefund ?? data?.estimatedRefund ?? 0),
+        message: String(data?.Message ?? data?.message ?? ""),
+      };
+    } catch {
+      return null;
+    }
+  },
+
   async getCancellationPolicy(id: string): Promise<unknown> {
     try {
       const res = await apiClient.get<unknown>(

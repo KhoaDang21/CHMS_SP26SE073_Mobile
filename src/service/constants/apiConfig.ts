@@ -30,6 +30,8 @@ export const apiConfig = {
       detail: (id: string) => `/api/bookings/${id}`,
       create: "/api/bookings",
       cancel: (id: string) => `/api/bookings/${id}/cancel`,
+      cancelAndRefund: "/api/bookings/cancel",
+      previewRefund: (id: string) => `/api/bookings/${id}/preview-refund`,
       calculate: "/api/bookings/calculate",
       modify: (id: string) => `/api/bookings/${id}/modify`,
       cancellationPolicy: (id: string) =>
