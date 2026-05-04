@@ -1,40 +1,41 @@
-import {
-  AboutScreen,
-  BicycleGamificationScreen,
-  BookingDetailScreen,
-  BookingDiningScreen,
-  BookingEditScreen,
-  BookingsScreen,
-  ChatScreen,
-  ContactScreen,
-  CreateReviewScreen,
-  ForgotPasswordScreen,
-  HomeScreen,
-  HomestayDetailScreen,
-  LandingScreen,
-  LocalExperiencesScreen,
-  LoginScreen,
-  NotificationPreferencesScreen,
-  NotificationsScreen,
-  PaymentInitiationScreen,
-  PaymentResultScreen,
-  ProfileScreen,
-  PublicExploreScreen,
-  RegisterScreen,
-  ResetPasswordScreen,
-  ReviewsScreen,
-  SupportScreen,
-  TravelGuidesScreen,
-  WishlistScreen,
-} from "@/screens";
 import AiFloatingButton from "@/components/ai/AiFloatingButton";
+import {
+    AboutScreen,
+    BicycleGamificationScreen,
+    BookingDetailScreen,
+    BookingDiningScreen,
+    BookingEditScreen,
+    BookingsScreen,
+    ChatScreen,
+    ContactScreen,
+    CreateReviewScreen,
+    EquipmentScreen,
+    ForgotPasswordScreen,
+    HomeScreen,
+    HomestayDetailScreen,
+    LandingScreen,
+    LocalExperiencesScreen,
+    LoginScreen,
+    NotificationPreferencesScreen,
+    NotificationsScreen,
+    PaymentInitiationScreen,
+    PaymentResultScreen,
+    ProfileScreen,
+    PublicExploreScreen,
+    RegisterScreen,
+    ResetPasswordScreen,
+    ReviewsScreen,
+    SupportScreen,
+    TravelGuidesScreen,
+    WishlistScreen,
+} from "@/screens";
 import { tokenStorage } from "@/service/auth/tokenStorage";
 import { colors } from "@/utils/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Linking from "expo-linking";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
+import { LinkingOptions, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   BookingDetail: { bookingId: string };
   BookingEdit: { bookingId: string };
   BookingDining: { bookingId: string };
+  Equipment: { booking: any };
   PaymentInitiation: { bookingId: string; booking?: any };
   LocalExperiences: undefined;
   Reviews: undefined;
@@ -151,14 +153,26 @@ function AuthStackScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   return (
     <AuthStackNavigator.Navigator screenOptions={{ headerShown: false }}>
       <AuthStackNavigator.Screen name="Landing" component={LandingScreen} />
-      <AuthStackNavigator.Screen name="Explore" component={PublicExploreScreen} />
-      <AuthStackNavigator.Screen name="HomestayDetail" component={HomestayDetailScreen} />
+      <AuthStackNavigator.Screen
+        name="Explore"
+        component={PublicExploreScreen}
+      />
+      <AuthStackNavigator.Screen
+        name="HomestayDetail"
+        component={HomestayDetailScreen}
+      />
       <AuthStackNavigator.Screen name="Login">
         {() => <LoginScreen onLoginSuccess={onLoginSuccess} />}
       </AuthStackNavigator.Screen>
       <AuthStackNavigator.Screen name="Register" component={RegisterScreen} />
-      <AuthStackNavigator.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <AuthStackNavigator.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <AuthStackNavigator.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+      />
+      <AuthStackNavigator.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+      />
       <AuthStackNavigator.Screen name="About" component={AboutScreen} />
       <AuthStackNavigator.Screen name="Contact" component={ContactScreen} />
     </AuthStackNavigator.Navigator>
@@ -192,7 +206,11 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           options={{
             tabBarLabel: "Trang chủ",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="home-outline" color={color} size={size} />
+              <MaterialCommunityIcons
+                name="home-outline"
+                color={color}
+                size={size}
+              />
             ),
           }}
         />
@@ -202,7 +220,11 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           options={{
             tabBarLabel: "Đặt phòng",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="calendar-outline" color={color} size={size} />
+              <MaterialCommunityIcons
+                name="calendar-outline"
+                color={color}
+                size={size}
+              />
             ),
           }}
         />
@@ -222,7 +244,11 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           options={{
             tabBarLabel: "Cẩm nang",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="book-open-variant" color={color} size={size} />
+              <MaterialCommunityIcons
+                name="book-open-variant"
+                color={color}
+                size={size}
+              />
             ),
           }}
         />
@@ -232,7 +258,11 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           options={{
             tabBarLabel: "Yêu thích",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="heart-outline" color={color} size={size} />
+              <MaterialCommunityIcons
+                name="heart-outline"
+                color={color}
+                size={size}
+              />
             ),
           }}
         />
@@ -241,7 +271,11 @@ function MainTabs({ onLogout }: { onLogout?: () => void }) {
           options={{
             tabBarLabel: "Cài đặt",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="cog-outline" color={color} size={size} />
+              <MaterialCommunityIcons
+                name="cog-outline"
+                color={color}
+                size={size}
+              />
             ),
           }}
         >
@@ -333,14 +367,12 @@ export default function RootNavigator() {
                 name="BookingDetail"
                 component={BookingDetailScreen}
               />
-              <Stack.Screen
-                name="BookingEdit"
-                component={BookingEditScreen}
-              />
+              <Stack.Screen name="BookingEdit" component={BookingEditScreen} />
               <Stack.Screen
                 name="BookingDining"
                 component={BookingDiningScreen}
               />
+              <Stack.Screen name="Equipment" component={EquipmentScreen} />
               <Stack.Screen
                 name="PaymentInitiation"
                 component={PaymentInitiationScreen}
@@ -362,10 +394,19 @@ export default function RootNavigator() {
                 presentation: "modal",
               }}
             >
-              <Stack.Screen name="Notifications" component={NotificationsScreen} />
-              <Stack.Screen name="NotificationPreferences" component={NotificationPreferencesScreen} />
+              <Stack.Screen
+                name="Notifications"
+                component={NotificationsScreen}
+              />
+              <Stack.Screen
+                name="NotificationPreferences"
+                component={NotificationPreferencesScreen}
+              />
               <Stack.Screen name="Chat" component={ChatScreen} />
-              <Stack.Screen name="CreateReview" component={CreateReviewScreen} />
+              <Stack.Screen
+                name="CreateReview"
+                component={CreateReviewScreen}
+              />
             </Stack.Group>
           </Stack.Group>
         )}
