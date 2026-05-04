@@ -80,7 +80,7 @@ export type CurrentRental = {
 
 export type CheckInPayload = {
   bookingId: string;
-  hiddenGemId: string;
+  hiddenGemId?: string;
   currentLatitude: number;
   currentLongitude: number;
 };
@@ -107,8 +107,10 @@ export const bicycleGamificationService = {
           id: r.id,
           routeName: r.routeName,
           description: r.description,
-          totalDistanceKm: r.totalDistanceKm != null ? Number(r.totalDistanceKm) : undefined,
-          estimatedMinutes: r.estimatedMinutes != null ? Number(r.estimatedMinutes) : undefined,
+          totalDistanceKm:
+            r.totalDistanceKm != null ? Number(r.totalDistanceKm) : undefined,
+          estimatedMinutes:
+            r.estimatedMinutes != null ? Number(r.estimatedMinutes) : undefined,
           polylineMap: r.polylineMap,
           hiddenGems: Array.isArray(r.hiddenGems)
             ? r.hiddenGems.map((g: AnyRecord) => ({
@@ -179,9 +181,17 @@ export const bicycleGamificationService = {
 
   async checkIn(payload: CheckInPayload): Promise<CheckInResult> {
     try {
+      // build body but omit hiddenGemId if not provided
+      const body: AnyRecord = {
+        bookingId: payload.bookingId,
+        currentLatitude: payload.currentLatitude,
+        currentLongitude: payload.currentLongitude,
+      };
+      if (payload.hiddenGemId) body.hiddenGemId = payload.hiddenGemId;
+
       const res = await apiClient.post<AnyRecord>(
         apiConfig.endpoints.gamificationBicycles.checkIn,
-        payload,
+        body,
       );
       // BE trả { Success, Message, Distance } (PascalCase)
       const raw = unwrapData<AnyRecord>(res);
@@ -198,7 +208,9 @@ export const bicycleGamificationService = {
       };
     } catch (error: unknown) {
       const msg =
-        error instanceof Error ? error.message : "Không thể check-in. Vui lòng thử lại.";
+        error instanceof Error
+          ? error.message
+          : "Không thể check-in. Vui lòng thử lại.";
       return { success: false, message: msg };
     }
   },

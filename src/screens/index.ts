@@ -1,12 +1,13 @@
 export { default as AboutScreen } from "@/screens/AboutScreen";
+export { default as BicycleGamificationScreen } from "@/screens/BicycleGamificationScreen";
 export { default as BookingDetailScreen } from "@/screens/BookingDetailScreen";
 export { default as BookingDiningScreen } from "@/screens/BookingDiningScreen";
 export { default as BookingEditScreen } from "@/screens/BookingEditScreen";
 export { default as BookingsScreen } from "@/screens/BookingsScreen";
-export { default as BicycleGamificationScreen } from "@/screens/BicycleGamificationScreen";
 export { default as ChatScreen } from "@/screens/ChatScreen";
 export { default as ContactScreen } from "@/screens/ContactScreen";
 export { default as CreateReviewScreen } from "@/screens/CreateReviewScreen";
+export { default as EquipmentScreen } from "@/screens/EquipmentScreen";
 export { default as ForgotPasswordScreen } from "@/screens/ForgotPasswordScreen";
 export { default as HomeScreen } from "@/screens/HomeScreen";
 export { default as HomestayDetailScreen } from "@/screens/HomestayDetailScreen";
@@ -25,3 +26,4 @@ export { default as ReviewsScreen } from "@/screens/ReviewsScreen";
 export { default as SupportScreen } from "@/screens/SupportScreen";
 export { default as TravelGuidesScreen } from "@/screens/TravelGuidesScreen";
 export { default as WishlistScreen } from "@/screens/WishlistScreen";
+

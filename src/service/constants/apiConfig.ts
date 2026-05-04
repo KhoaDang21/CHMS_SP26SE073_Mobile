@@ -147,5 +147,11 @@ export const apiConfig = {
       cancelOrder: (orderId: string) =>
         `/api/customer/dining/orders/${orderId}/cancel`,
     },
+    equipment: {
+      byHomestay: (homestayId: string) =>
+        `/api/customer/equipment/homestays/${homestayId}`,
+      requests: "/api/customer/equipment-requests",
+      createRequest: "/api/customer/equipment-requests",
+    },
   },
 };
